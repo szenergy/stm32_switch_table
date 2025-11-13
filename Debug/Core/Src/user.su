@@ -1,0 +1,12 @@
+../Core/Src/user.c:57:10:ADC_Read	16	static
+../Core/Src/user.c:70:6:Pot_Read_Filtered	56	static
+../Core/Src/user.c:95:10:Rate_Limit	16	static
+../Core/Src/user.c:108:6:Drive_State_Update	8	static
+../Core/Src/user.c:134:10:Calculate_MC_Ref	1568	static
+../Core/Src/user.c:189:6:Port_Update	8	static
+../Core/Src/user.c:213:6:CAN_Receive	56	static
+../Core/Src/user.c:253:6:CAN_Send_Vcu	64	static
+../Core/Src/user.c:281:6:CAN_Send_Mc	64	static
+../Core/Src/user.c:304:6:Wiper_Task	8	static
+../Core/Src/user.c:353:6:User_Init	24	static
+../Core/Src/user.c:383:6:User_Loop	8	static
