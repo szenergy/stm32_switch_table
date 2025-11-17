@@ -77,8 +77,8 @@ void Error_Handler(void);
 #define SW_LIGHTS_GPIO_Port GPIOC
 #define OUT_WIPER_CONVERTER_Pin GPIO_PIN_9
 #define OUT_WIPER_CONVERTER_GPIO_Port GPIOC
-#define OUT_BREAK_Pin GPIO_PIN_0
-#define OUT_BREAK_GPIO_Port GPIOD
+#define OUT_BRAKE_Pin GPIO_PIN_2
+#define OUT_BRAKE_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
 
