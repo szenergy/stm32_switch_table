@@ -64,6 +64,11 @@ uint16_t ADC_Read() {
 	return value;
 }
 
+void CAN_Error() {
+	fdcan->ErrorCode;
+	HAL_GPIO_TogglePin(NUCLEO_LED_1_GPIO_Port, NUCLEO_LED_1_Pin);
+}
+
 /**
  * Reads, filters and debounces the current value of the potentiometer
  */
@@ -196,11 +201,12 @@ void Port_Update() {
 	vcu_state.A.BRAKE          = HAL_GPIO_ReadPin(IN_BRAKE_GPIO_Port, IN_BRAKE_Pin);
 	vcu_state.B.RELAY_NO       = HAL_GPIO_ReadPin(IN_SHELL_RELAY_GPIO_Port, IN_SHELL_RELAY_Pin);
 
-	if (vcu_state.A.BRAKE == SET) {
-		HAL_GPIO_WritePin(OUT_BRAKE_GPIO_Port, OUT_BRAKE_Pin, GPIO_PIN_RESET);
-	} else {
-		HAL_GPIO_WritePin(OUT_BRAKE_GPIO_Port, OUT_BRAKE_Pin, GPIO_PIN_SET);
-	}
+//	this brakes stuff for some reason
+//	if (vcu_state.A.BRAKE == SET) {
+//		HAL_GPIO_WritePin(OUT_BRAKE_GPIO_Port, OUT_BRAKE_Pin, GPIO_PIN_RESET);
+//	} else {
+//		HAL_GPIO_WritePin(OUT_BRAKE_GPIO_Port, OUT_BRAKE_Pin, GPIO_PIN_SET);
+//	}
 
 	if (vcu_state.B.RELAY_NO == SET) {
 		vcu_state.A.MC_OW = RESET;
@@ -215,7 +221,8 @@ void CAN_Receive() {
 	uint8_t data[8];
 
 	if (HAL_FDCAN_GetRxMessage(fdcan, FDCAN_RX_FIFO0, &header, data) != HAL_OK) {
-		Error_Handler();
+		CAN_Error();
+		return;
 	}
 
 	switch (header.Identifier) {
@@ -254,11 +261,15 @@ void CAN_Send_Vcu() {
 	FDCAN_TxHeaderTypeDef header;
 	uint8_t data[6];
 
-	header.FDFormat = FDCAN_CLASSIC_CAN;
 	header.Identifier = 0x129;
 	header.IdType = FDCAN_STANDARD_ID;
 	header.TxFrameType = FDCAN_DATA_FRAME;
 	header.DataLength = FDCAN_DLC_BYTES_6;
+	header.FDFormat = FDCAN_CLASSIC_CAN;
+	header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+	header.BitRateSwitch = FDCAN_BRS_OFF;
+	header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+	header.MessageMarker = 0;
 
 	data[0] = vcu_state.A.bits;
 	data[1] = vcu_state.B.bits;
@@ -270,7 +281,8 @@ void CAN_Send_Vcu() {
 	data[5] = throttle_buffer;
 
 	if (HAL_FDCAN_AddMessageToTxFifoQ(fdcan, &header, data) != HAL_OK) {
-		Error_Handler();
+		CAN_Error();
+		return;
 	}
 }
 
@@ -282,9 +294,9 @@ void CAN_Send_Mc(uint16_t reference) {
 	FDCAN_TxHeaderTypeDef header;
 	uint8_t data[4];
 
-	header.FDFormat = FDCAN_CLASSIC_CAN;
 	header.Identifier = 0xA51;
 	header.IdType = FDCAN_EXTENDED_ID;
+	header.FDFormat = FDCAN_CLASSIC_CAN;
 	header.TxFrameType = FDCAN_DATA_FRAME;
 	header.DataLength = FDCAN_DLC_BYTES_4;
 
@@ -297,7 +309,8 @@ void CAN_Send_Mc(uint16_t reference) {
 	data[3] = throttle_buffer;
 
 	if (HAL_FDCAN_AddMessageToTxFifoQ(fdcan, &header, data) != HAL_OK) {
-		Error_Handler();
+		CAN_Error();
+		return;
 	}
 }
 
@@ -375,6 +388,9 @@ void User_Init(ADC_HandleTypeDef *adc_ptr, FDCAN_HandleTypeDef *fdcan_ptr, TIM_H
 	rate_limiter.prev = 0;
 	wiper_state.running = RESET;
 	wiper_state.step = 0;
+
+	HAL_GPIO_WritePin(NUCLEO_LED_1_GPIO_Port, NUCLEO_LED_1_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(NUCLEO_LED_2_GPIO_Port, NUCLEO_LED_2_Pin, GPIO_PIN_RESET);
 }
 
 /**
@@ -401,5 +417,6 @@ void User_Loop() {
 			CAN_Send_Mc(Calculate_MC_Ref());
 		}
 		user_flags.interval_CAN = RESET;
+		HAL_GPIO_TogglePin(NUCLEO_LED_2_GPIO_Port, NUCLEO_LED_2_Pin);
 	}
 }
