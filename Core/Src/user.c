@@ -102,7 +102,7 @@ void Drive_State_Update() {
 			} else if (stw_state.A.REVERSE == SET) {
 				drive_state.current = D_REVERSE_PEDAL;
 			}
-		} else if (stw_state.A.ACC == SET && pot_value.current == 0) {
+		} else if (stw_state.A.ACC == SET) {
 			if (stw_state.A.DRIVE == SET) {
 				drive_state.current = D_AUTO_ACC;
 			} else if (stw_state.A.REVERSE == SET) {
@@ -123,7 +123,7 @@ uint16_t Calculate_MC_Ref() {
 	if (vcu_state.A.BRAKE != RESET)
 		return 0; // the brake pedal should inhibit acceleration
 
-	uint16_t reference = 0;
+	uint16_t reference = pot_value.current;
 
 	if (drive_state.current != D_NEUTRAL) {
 		if (drive_state.current == D_AUTO_ACC || drive_state.current == D_AUTO_DEC) {
@@ -163,8 +163,6 @@ uint16_t Calculate_MC_Ref() {
 					break;
 			}
 		}
-		if (pot_value.current > reference)
-			reference = pot_value.current;
 	} else if (drive_state.prev != D_NEUTRAL && drive_state.current == D_NEUTRAL) {
 		rate_limiter.current = 0;
 		rate_limiter.prev = 0;
@@ -240,7 +238,7 @@ void CAN_Send_Vcu() {
 	data[0] = vcu_state.A.bits;
 	data[1] = vcu_state.B.bits;
 
-	int32_t throttle_buffer = ((double)pot_value.current / 1023) * 100000;
+	int32_t throttle_buffer = (pot_value.current * 100000) / 1023;
 	data[2] = throttle_buffer >> 24;
 	data[3] = throttle_buffer >> 16;
 	data[4] = throttle_buffer >> 8;
