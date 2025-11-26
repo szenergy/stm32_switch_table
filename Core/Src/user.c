@@ -48,33 +48,16 @@ struct {
 
 struct WIPER_STATE wiper_state;
 
+
 // *** Processing Functions ***
 
-/**
- * Performs a single raw ADC read of the potentiometer
- * @retval the current value
- */
-uint16_t ADC_Read() {
-	uint16_t value;
-	HAL_ADC_Start(pot_adc);
-	if (HAL_ADC_PollForConversion(pot_adc, 5) == HAL_OK) {
-		value = HAL_ADC_GetValue(pot_adc);
-	}
-	HAL_ADC_Stop(pot_adc);
-	return value;
-}
-
-void CAN_Error() {
-	fdcan->ErrorCode;
-	HAL_GPIO_TogglePin(NUCLEO_LED_1_GPIO_Port, NUCLEO_LED_1_Pin);
-}
 
 /**
  * Reads, filters and debounces the current value of the potentiometer
  */
 void Pot_Read_Filtered() {
 	pot_value.prev = pot_value.current;
-	pot_value.current = ADC_Read();
+	pot_value.current = HAL_ADC_GetValue(pot_adc);
 
 	if (pot_value.current > POT_ZERO) {
         pot_value.ema = (POT_EMA * pot_value.current) + ((1 - POT_EMA) * pot_value.ema);
@@ -137,46 +120,51 @@ void Drive_State_Update() {
  * Calculates the regulated throttle setting to send to the motor
  */
 uint16_t Calculate_MC_Ref() {
-	uint16_t reference = pot_value.current;
+	if (vcu_state.A.BRAKE != RESET)
+		return 0; // the brake pedal should inhibit acceleration
+
+	uint16_t reference = 0;
 
 	if (drive_state.current != D_NEUTRAL) {
 		if (drive_state.current == D_AUTO_ACC || drive_state.current == D_AUTO_DEC) {
 			uint16_t speed = vehicle_state.rpm * SPEED_MULT_FACTOR;
 			switch (stw_state.D.bits) {
-			case 0:
-			case 1:
-			case 8:
-				reference = 1023;
-				break;
-			case 2:
-				if (vehicle_state.rpm >= 116)
-					reference = 1023 * LUT_Z22 [speed];
-				else
+				case 0:
+				case 1:
+				case 8:
 					reference = 1023;
-				break;
-			case 4:
-				if (vehicle_state.rpm >= 221)
-					reference = 1023 * LUT_Z24 [speed];
-				else
-					reference = 1023;
-				break;
-			case 16:
-				if (speed >= 5)
-					reference = 409;
-				else
-					reference = 1023;
-				break;
-			case 32:
-				reference = 818;
-				break;
-			case 64:
-				reference = 920;
-				break;
-			default:
-				reference = 0;
-				break;
+					break;
+				case 2:
+					if (vehicle_state.rpm >= 116)
+						reference = 1023 * LUT_Z22[speed];
+					else
+						reference = 1023;
+					break;
+				case 4:
+					if (vehicle_state.rpm >= 221)
+						reference = 1023 * LUT_Z24[speed];
+					else
+						reference = 1023;
+					break;
+				case 16:
+					if (speed >= 5)
+						reference = 409;
+					else
+						reference = 1023;
+					break;
+				case 32:
+					reference = 818;
+					break;
+				case 64:
+					reference = 920;
+					break;
+				default:
+					reference = 0;
+					break;
 			}
 		}
+		if (pot_value.current > reference)
+			reference = pot_value.current;
 	} else if (drive_state.prev != D_NEUTRAL && drive_state.current == D_NEUTRAL) {
 		rate_limiter.current = 0;
 		rate_limiter.prev = 0;
@@ -189,7 +177,7 @@ uint16_t Calculate_MC_Ref() {
 }
 
 /**
- * Reads the state of the switches and adjusts the outputs accordingly
+ * Reads the state of the switches
  */
 void Port_Update() {
 	vcu_state.A.AUTO           = HAL_GPIO_ReadPin(SW_AUTO_GPIO_Port, SW_AUTO_Pin);
@@ -200,21 +188,10 @@ void Port_Update() {
 	vcu_state.A.HEADLIGHT      = HAL_GPIO_ReadPin(SW_HEADLIGHT_GPIO_Port, SW_HEADLIGHT_Pin);
 	vcu_state.A.BRAKE          = HAL_GPIO_ReadPin(IN_BRAKE_GPIO_Port, IN_BRAKE_Pin);
 	vcu_state.B.RELAY_NO       = HAL_GPIO_ReadPin(IN_SHELL_RELAY_GPIO_Port, IN_SHELL_RELAY_Pin);
-
-//	this brakes stuff for some reason
-//	if (vcu_state.A.BRAKE == SET) {
-//		HAL_GPIO_WritePin(OUT_BRAKE_GPIO_Port, OUT_BRAKE_Pin, GPIO_PIN_RESET);
-//	} else {
-//		HAL_GPIO_WritePin(OUT_BRAKE_GPIO_Port, OUT_BRAKE_Pin, GPIO_PIN_SET);
-//	}
-
-	if (vcu_state.B.RELAY_NO == SET) {
-		vcu_state.A.MC_OW = RESET;
-	}
 }
 
 /**
- * Callback function that processes the received CAN message
+ * Processes the received CAN message
  */
 void CAN_Receive() {
 	FDCAN_RxHeaderTypeDef header;
@@ -234,28 +211,17 @@ void CAN_Receive() {
 			stw_state.B.bits = data[1];
 			stw_state.C.bits = data[2];
 			stw_state.D.bits = data[3];
-			if (vcu_state.B.RELAY_NO == SET) {
-				stw_state.A.ACC = RESET;
-				stw_state.A.DRIVE = RESET;
-				stw_state.A.REVERSE = RESET;
-			}
 			break;
 		case 0x123:
 			vehicle_state.rpm = ((uint16_t)data[0] << 8) | data[1];
 			break;
-		case 0x10:
-//			if (data[0] & 1) {
-//				HAL_GPIO_WritePin(OUT_SHELL_RELAY_GPIO_Port, OUT_SHELL_RELAY_Pin, GPIO_PIN_SET);
-//			} else {
-//				HAL_GPIO_WritePin(OUT_SHELL_RELAY_GPIO_Port, OUT_SHELL_RELAY_Pin, GPIO_PIN_RESET);
-//			}
-			break;
 		default: break;
 	}
+	return;
 }
 
 /**
- * Transmits the switch states and throttle position to CAN
+ * Transmits the switch states and pedal position to CAN
  */
 void CAN_Send_Vcu() {
 	FDCAN_TxHeaderTypeDef header;
@@ -300,7 +266,7 @@ void CAN_Send_Mc(uint16_t reference) {
 	header.TxFrameType = FDCAN_DATA_FRAME;
 	header.DataLength = FDCAN_DLC_BYTES_4;
 
-	int32_t throttle_buffer = ((double)reference / 1023) * 100000;
+	int32_t throttle_buffer = (reference * 100000) / 1023;
 	if (stw_state.A.REVERSE)
 		throttle_buffer = throttle_buffer * -1;
 	data[0] = throttle_buffer >> 24;
@@ -308,12 +274,14 @@ void CAN_Send_Mc(uint16_t reference) {
 	data[2] = throttle_buffer >> 8;
 	data[3] = throttle_buffer;
 
-	if (HAL_FDCAN_AddMessageToTxFifoQ(fdcan, &header, data) != HAL_OK) {
+	if (HAL_FDCAN_AddMessageToTxFifoQ(fdcan, &header, data) != HAL_OK)
 		CAN_Error();
-		return;
-	}
 }
 
+/**
+ * Wiper task is executed every WIPER_INTERVAL milliseconds.
+ * It controls the wiper position and state
+ */
 void Wiper_Task() {
 	switch (wiper_state.step) {
 	case 0: // Standby state, waiting for wiper switch signal
@@ -362,6 +330,9 @@ void Wiper_Task() {
 
 /**
  * Initializes the user defined variables
+ * @param adc_ptr - pointer to the ADC instance to use for the pedal
+ * @param fdcan_ptr - pointer to the CAN instance for sending and receiving data
+ * @param wiper_pwm_ptr - pointer to the timer configured in PWM mode which controls the wiper servo
  */
 void User_Init(ADC_HandleTypeDef *adc_ptr, FDCAN_HandleTypeDef *fdcan_ptr, TIM_HandleTypeDef *wiper_pwm_ptr) {
 	pot_adc = adc_ptr;
@@ -378,6 +349,7 @@ void User_Init(ADC_HandleTypeDef *adc_ptr, FDCAN_HandleTypeDef *fdcan_ptr, TIM_H
 	user_flags.can_synced = RESET;
 	user_flags.interval_CAN = RESET;
 	user_flags.interval_wiper = RESET;
+	user_flags.adc_conversion = RESET;
 	vehicle_state.rpm = 0;
 	drive_state.current = D_NEUTRAL;
 	drive_state.prev = D_NEUTRAL;
@@ -388,35 +360,52 @@ void User_Init(ADC_HandleTypeDef *adc_ptr, FDCAN_HandleTypeDef *fdcan_ptr, TIM_H
 	rate_limiter.prev = 0;
 	wiper_state.running = RESET;
 	wiper_state.step = 0;
-
-	HAL_GPIO_WritePin(NUCLEO_LED_1_GPIO_Port, NUCLEO_LED_1_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(NUCLEO_LED_2_GPIO_Port, NUCLEO_LED_2_Pin, GPIO_PIN_RESET);
 }
 
 /**
- * Main loop for user tasks, runs every on clock cycle
+ * Main loop for user tasks, should be called in the main while loop
  */
 void User_Loop() {
 	Port_Update();
 
-	if (user_flags.interval_wiper == SET) {
-		Wiper_Task();
-		user_flags.interval_wiper = RESET;
+// 	interrupt only fires once for some reason :c
+// 	but polling works
+//	if (user_flags.can_receive == SET) {
+	CAN_Receive();
+//		user_flags.can_receive = RESET;
+//	}
+
+//	If the shell relay is on, cut the acceleration
+	if (vcu_state.B.RELAY_NO == SET) {
+		stw_state.A.ACC = RESET;
+		stw_state.A.DRIVE = RESET;
+		stw_state.A.REVERSE = RESET;
+//		vcu_state.A.MC_OW = RESET;
 	}
 
-	if (user_flags.can_receive == SET) {
-		CAN_Receive();
-		user_flags.can_receive = RESET;
+	if (user_flags.adc_conversion == SET) {
+		Pot_Read_Filtered();
+		user_flags.adc_conversion = RESET;
 	}
 
 	if (user_flags.interval_CAN == SET) {
-		Pot_Read_Filtered();
 		CAN_Send_Vcu();
 		if (vcu_state.A.MC_OW == RESET && vcu_state.A.AUTO == RESET) {
 			Drive_State_Update();
 			CAN_Send_Mc(Calculate_MC_Ref());
 		}
 		user_flags.interval_CAN = RESET;
-		HAL_GPIO_TogglePin(NUCLEO_LED_2_GPIO_Port, NUCLEO_LED_2_Pin);
 	}
+
+	if (user_flags.interval_wiper == SET) {
+		Wiper_Task();
+		user_flags.interval_wiper = RESET;
+	}
+}
+
+/**
+ * Only used when debugging, otherwise CAN errors are ignored
+ */
+void CAN_Error() {
+	return;
 }

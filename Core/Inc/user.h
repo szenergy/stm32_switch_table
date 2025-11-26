@@ -164,10 +164,11 @@ struct WIPER_STATE {
 };
 
 struct USER_FLAGS {
-    uint8_t interval_CAN  :1;
-    uint8_t interval_wiper :1;
-    uint8_t can_receive    :1;
-    uint8_t can_synced     :1;
+    uint8_t interval_CAN     :1;
+    uint8_t interval_wiper   :1;
+    uint8_t can_receive      :1;
+    uint8_t can_synced       :1;
+    uint8_t adc_conversion   :1;
 };
 
 
@@ -181,5 +182,6 @@ extern volatile struct USER_FLAGS user_flags;
 void User_Init(ADC_HandleTypeDef *adc_ptr, FDCAN_HandleTypeDef *fdcan_ptr, TIM_HandleTypeDef *wiper_pwm_ptr);
 void User_Loop();
 
+void CAN_Error();
 
 #endif /* INC_USER_H_ */

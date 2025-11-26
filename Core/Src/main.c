@@ -65,7 +65,13 @@ static void MX_TIM2_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-// Timer interrupt callback
+
+// ADC conversion complete callback
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+	user_flags.adc_conversion = SET;
+}
+
+// Task timer interrupt callback
 struct {
 	uint8_t interval_CAN;
 	uint16_t interval_wiper;
@@ -87,13 +93,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	}
 }
 
-// CAN message interrupt callback
-void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs) {
-	if((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != RESET) {
-		user_flags.can_receive = SET;
-		HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0);
-	}
-}
+// CAN message received interrupt callback
+//void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs) {
+//	if((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != RESET) {
+//		user_flags.can_receive = SET;
+//	}
+//	if (HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0) != HAL_OK)
+//		CAN_Error();
+//}
 
 /* USER CODE END 0 */
 
@@ -138,11 +145,6 @@ int main(void)
   timer_counters.interval_CAN = 0;
   timer_counters.interval_wiper = 0;
 
-  // start the needed modules
-  HAL_ADCEx_Calibration_Start(&hadc1);
-  HAL_TIM_Base_Start_IT(&htim1);
-  HAL_FDCAN_Start(&hfdcan1);
-
   // filter for processed CAN messages
   FDCAN_FilterTypeDef _filter_1;
   _filter_1.FilterIndex = 0;
@@ -151,7 +153,9 @@ int main(void)
   _filter_1.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
   _filter_1.FilterID1 = 0x185;
   _filter_1.FilterID2 = 0x190;
-  HAL_FDCAN_ConfigFilter(&hfdcan1, &_filter_1);
+  if (HAL_FDCAN_ConfigFilter(&hfdcan1, &_filter_1) != HAL_OK)
+	  CAN_Error();
+
   FDCAN_FilterTypeDef _filter_2;
   _filter_2.FilterIndex = 1;
   _filter_2.IdType = FDCAN_STANDARD_ID;
@@ -159,10 +163,19 @@ int main(void)
   _filter_2.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
   _filter_2.FilterID1 = 0x123;
   _filter_2.FilterID2 = 0x10;
-  HAL_FDCAN_ConfigFilter(&hfdcan1, &_filter_2);
+  if (HAL_FDCAN_ConfigFilter(&hfdcan1, &_filter_2) != HAL_OK)
+	  CAN_Error();
+
+  // start the nessesary modules
+  HAL_ADCEx_Calibration_Start(&hadc1);
+  HAL_ADC_Start_IT(&hadc1);
+  HAL_TIM_Base_Start_IT(&htim1);
+  HAL_FDCAN_Start(&hfdcan1);
+
 
 // activate fifo0 callback
-  HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0);
+//  if (HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0) != HAL_OK)
+//	  CAN_Error();
 
   /* USER CODE END 2 */
 
@@ -441,13 +454,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(NUCLEO_LED_2_GPIO_Port, NUCLEO_LED_2_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(NUCLEO_LED_1_GPIO_Port, NUCLEO_LED_1_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, OUT_BRAKE_Pin|OUT_WIPER_CONVERTER_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(OUT_WIPER_CONVERTER_GPIO_Port, OUT_WIPER_CONVERTER_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : SW_AUTO_Pin IN_BRAKE_Pin SW_HAZARD_Pin SW_HEADLIGHT_Pin
                            IN_SHELL_RELAY_Pin SW_WIPER_Pin SW_MC_OW_Pin SW_LIGHTS_Pin */
@@ -457,26 +464,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : NUCLEO_LED_2_Pin */
-  GPIO_InitStruct.Pin = NUCLEO_LED_2_Pin;
+  /*Configure GPIO pin : OUT_WIPER_CONVERTER_Pin */
+  GPIO_InitStruct.Pin = OUT_WIPER_CONVERTER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(NUCLEO_LED_2_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : NUCLEO_LED_1_Pin */
-  GPIO_InitStruct.Pin = NUCLEO_LED_1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(NUCLEO_LED_1_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : OUT_BRAKE_Pin OUT_WIPER_CONVERTER_Pin */
-  GPIO_InitStruct.Pin = OUT_BRAKE_Pin|OUT_WIPER_CONVERTER_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+  HAL_GPIO_Init(OUT_WIPER_CONVERTER_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
