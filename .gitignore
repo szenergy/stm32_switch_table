@@ -1,0 +1,9 @@
+Debug/
+Drivers/
+*.cfg
+*.launch
+*.ld
+.mxproject
+.settings
+*.txt
+*.pdf
