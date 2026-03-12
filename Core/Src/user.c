@@ -1,14 +1,13 @@
 /*
  * user.c
  *
- *  Created on: Nov 3, 2025
- *  Author: varma01, Szenergy
+ *	Made for Shell Eco Marathon by SZEnergy team
+ *
+ *  Created on: Mar 5, 2026
+ *      Author: varma02@Github
  */
 
 #include "user.h"
-
-
-// *** Variables ***
 
 struct {
 	VCU_STATE_A A;
@@ -24,97 +23,108 @@ struct {
 
 volatile struct USER_FLAGS user_flags;
 
-struct VEHICLE_STATE vehicle_state;
+double wheel_rpm;
 
 struct {
-	enum DRIVE_STATE prev;
-	enum DRIVE_STATE current;
+	DRIVE_STATE prev;
+	DRIVE_STATE current;
 } drive_state;
 
-ADC_HandleTypeDef *pot_adc;
-FDCAN_HandleTypeDef *fdcan;
-TIM_HandleTypeDef *wiper_pwm;
-
 struct {
+	volatile uint32_t adc;
 	uint16_t current;
 	uint16_t prev;
 	uint16_t ema;
-} pot_value;
+} throttle_value;
+
+struct WIPER_STATE _wiper_state;
 
 struct {
 	uint16_t current;
 	uint16_t prev;
-} rate_limiter;
+} _rate_limiter;
 
-struct WIPER_STATE wiper_state;
+struct {
+	uint8_t can_msg;
+	uint16_t wiper_tick;
+} _timer_counters;
+
+ADC_HandleTypeDef *_usr_throttle_adc;
+CAN_HandleTypeDef *_usr_can;
+TIM_HandleTypeDef *_usr_wiper_pwm;
+UART_HandleTypeDef *_usr_uart;
 
 
-// *** Processing Functions ***
-
-
-/**
- * Performs a single raw ADC read of the potentiometer
- * @retval the current value
- */
-uint16_t ADC_Read() {
-	uint16_t value;
-	HAL_ADC_Start(pot_adc);
-	if (HAL_ADC_PollForConversion(pot_adc, 5) == HAL_OK) {
-		value = HAL_ADC_GetValue(pot_adc);
+void User_Error_Handler(USER_ERROR err) {
+	__disable_irq();
+	HAL_GPIO_WritePin(LED2_Red_GPIO_Port, LED2_Red_Pin, GPIO_PIN_SET);
+	while (1) {
+		HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_RESET);
+		HAL_Delay(500);
+		for (uint8_t i = 0; i < err; ++i) {
+			HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_SET);
+			HAL_Delay(100);
+			HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_RESET);
+			HAL_Delay(100);
+		}
 	}
-	HAL_ADC_Stop(pot_adc);
-	return value;
 }
 
+uint16_t _Rate_Limit(uint16_t value) {
+	_rate_limiter.prev = _rate_limiter.current;
+	_rate_limiter.current = value;
+    if(2000 + _rate_limiter.current - _rate_limiter.prev > 2000 + RATE_LIMIT_UP)
+        _rate_limiter.current = _rate_limiter.prev + RATE_LIMIT_UP;
+    else if(2000 + _rate_limiter.current - _rate_limiter.prev < 2000 - RATE_LIMIT_DOWN)
+        _rate_limiter.current = _rate_limiter.prev - RATE_LIMIT_DOWN;
+    return _rate_limiter.current;
+}
 
-/**
- * Reads, filters and debounces the current value of the potentiometer
- */
-void Pot_Read_Filtered() {
-	pot_value.prev = pot_value.current;
-	pot_value.current = ADC_Read();
+//uint16_t ADC_Read() {
+//	uint16_t value;
+//	HAL_ADC_Start(_usr_throttle_adc);
+//	if (HAL_ADC_PollForConversion(_usr_throttle_adc, 5) == HAL_OK) {
+//		value = HAL_ADC_GetValue(_usr_throttle_adc);
+//	}
+//	HAL_ADC_Stop(_usr_throttle_adc);
+//	return value;
+//}
 
-	if (pot_value.current > POT_ZERO) {
-        pot_value.ema = (POT_EMA * pot_value.current) + ((1 - POT_EMA) * pot_value.ema);
-        pot_value.current = pot_value.ema;
+void _Pot_Filter() {
+	throttle_value.prev = throttle_value.current;
+	throttle_value.current = throttle_value.adc;
+
+//	char msg[32];
+//	uint32_t len = sprintf(msg, "RAW: %d\r\n", throttle_value.adc);
+//	HAL_UART_Transmit(_usr_uart, (uint8_t*)msg, len, 100);
+
+	if (throttle_value.current > POT_ZERO) {
+        throttle_value.ema = (POT_EMA * throttle_value.current) + ((1 - POT_EMA) * throttle_value.ema);
+        throttle_value.current = throttle_value.ema;
 	}
 
-	if ((pot_value.current - pot_value.prev) <= POT_STEP)
-		pot_value.current = pot_value.prev;
+	if ((throttle_value.current - throttle_value.prev) <= POT_STEP)
+		throttle_value.current = throttle_value.prev;
 
-	if (pot_value.current <= POT_ZERO + POT_STEP) {
-		pot_value.current = POT_VALUES[0];
-	} else if (pot_value.current <= POT_ZERO + POT_STEP * 19) {
-		pot_value.current = POT_VALUES[(pot_value.current - POT_ZERO) / POT_STEP];
+	if (throttle_value.current <= POT_ZERO + POT_STEP) {
+		throttle_value.current = POT_VALUES[0];
+	} else if (throttle_value.current <= POT_ZERO + POT_STEP * 19) {
+		throttle_value.current = POT_VALUES[(throttle_value.current - POT_ZERO) / POT_STEP];
 	} else {
-		pot_value.current = POT_VALUES[19];
+		throttle_value.current = POT_VALUES[19];
 	}
+
+//	char msg2[32];
+//	uint32_t len2 = sprintf(msg2, "FILTER: %d\r\n", throttle_value.current);
+//	HAL_UART_Transmit(_usr_uart, (uint8_t*)msg2, len2, 100);
 }
 
-/**
- * Throttle limiter for smooth acceleration
- * @param value - the throttle value to rate limit
- * @retval the rate limited value
- */
-uint16_t Rate_Limit(uint16_t value) {
-	rate_limiter.prev = rate_limiter.current;
-	rate_limiter.current = value;
-    if(2000 + rate_limiter.current - rate_limiter.prev > 2000 + RATE_LIMIT_UP)
-        rate_limiter.current = rate_limiter.prev + RATE_LIMIT_UP;
-    else if(2000 + rate_limiter.current - rate_limiter.prev < 2000 - RATE_LIMIT_DOWN)
-        rate_limiter.current = rate_limiter.prev - RATE_LIMIT_DOWN;
-    return rate_limiter.current;
-}
-
-/**
- * Updates the drive state of the vehicle
- */
-void Drive_State_Update() {
+void _Update_Drive_State() {
 	drive_state.prev = drive_state.current;
 	if (vcu_state.A.MC_OW == RESET) {
 		if (stw_state.A.DRIVE == RESET && stw_state.A.REVERSE == RESET) {
 			drive_state.current = D_NEUTRAL;
-		} else if (pot_value.current > 0) {
+		} else if (throttle_value.current > 0) {
 			if (stw_state.A.DRIVE == SET) {
 				drive_state.current = D_DRIVE_PEDAL;
 			} else if (stw_state.A.REVERSE == SET) {
@@ -134,18 +144,15 @@ void Drive_State_Update() {
 	}
 }
 
-/**
- * Calculates the regulated throttle setting to send to the motor
- */
-uint16_t Calculate_MC_Ref() {
+uint16_t _Calculate_MC_Ref() {
 	if (vcu_state.A.BRAKE != RESET)
 		return 0; // the brake pedal should inhibit acceleration
 
-	uint16_t reference = pot_value.current;
+	uint16_t reference = throttle_value.current;
 
 	if (drive_state.current != D_NEUTRAL) {
 		if (drive_state.current == D_AUTO_ACC || drive_state.current == D_AUTO_DEC) {
-			uint16_t speed = vehicle_state.rpm * SPEED_MULT_FACTOR;
+			uint16_t speed = wheel_rpm * SPEED_MULT_FACTOR;
 			switch (stw_state.D.bits) {
 				case 0:
 				case 1:
@@ -153,13 +160,13 @@ uint16_t Calculate_MC_Ref() {
 					reference = 1023;
 					break;
 				case 2:
-					if (vehicle_state.rpm >= 116)
+					if (wheel_rpm >= 116)
 						reference = 1023 * LUT_Z22[speed];
 					else
 						reference = 1023;
 					break;
 				case 4:
-					if (vehicle_state.rpm >= 221)
+					if (wheel_rpm >= 221)
 						reference = 1023 * LUT_Z24[speed];
 					else
 						reference = 1023;
@@ -182,109 +189,86 @@ uint16_t Calculate_MC_Ref() {
 			}
 		}
 	} else if (drive_state.prev != D_NEUTRAL && drive_state.current == D_NEUTRAL) {
-		rate_limiter.current = 0;
-		rate_limiter.prev = 0;
+		_rate_limiter.current = 0;
+		_rate_limiter.prev = 0;
 		reference = 0;
 	} else {
 		reference = 0;
 	}
 
-	return Rate_Limit(reference);
+	return _Rate_Limit(reference);
 }
 
-/**
- * Reads the state of the switches
- */
-void Port_Update() {
-	vcu_state.A.AUTO           = HAL_GPIO_ReadPin(SW_AUTO_GPIO_Port, SW_AUTO_Pin);
-	vcu_state.A.HAZARD         = HAL_GPIO_ReadPin(SW_HAZARD_GPIO_Port, SW_HAZARD_Pin);
-	vcu_state.A.LIGHTS_ENABLE  = HAL_GPIO_ReadPin(SW_LIGHTS_GPIO_Port, SW_LIGHTS_Pin);
-	vcu_state.A.MC_OW          = HAL_GPIO_ReadPin(SW_MC_OW_GPIO_Port, SW_MC_OW_Pin);
-	vcu_state.A.WIPER          = HAL_GPIO_ReadPin(SW_WIPER_GPIO_Port, SW_WIPER_Pin);
-	vcu_state.A.HEADLIGHT      = HAL_GPIO_ReadPin(SW_HEADLIGHT_GPIO_Port, SW_HEADLIGHT_Pin);
-	vcu_state.A.BRAKE          = HAL_GPIO_ReadPin(IN_BRAKE_GPIO_Port, IN_BRAKE_Pin);
-	vcu_state.B.RELAY_NO       = HAL_GPIO_ReadPin(IN_SHELL_RELAY_GPIO_Port, IN_SHELL_RELAY_Pin);
+void _Read_GPIO_Inputs() {
+	vcu_state.A.AUTONOMOUS     = HAL_GPIO_ReadPin(Autonomous_switch_GPIO_Port, Autonomous_switch_Pin);
+	vcu_state.A.HAZARD         = HAL_GPIO_ReadPin(Hazard_switch_GPIO_Port, Hazard_switch_Pin);
+	vcu_state.A.LIGHTS_ENABLE  = HAL_GPIO_ReadPin(Lights_enable_switch_GPIO_Port, Lights_enable_switch_Pin);
+	vcu_state.A.MC_OW          = HAL_GPIO_ReadPin(Motorcontrol_override_switch_GPIO_Port, Motorcontrol_override_switch_Pin);
+	vcu_state.A.WIPER          = HAL_GPIO_ReadPin(Wiper_switch_GPIO_Port, Wiper_switch_Pin);
+	vcu_state.A.HEADLIGHT      = HAL_GPIO_ReadPin(Headlight_switch_GPIO_Port, Headlight_switch_Pin);
+	vcu_state.A.BRAKE          = HAL_GPIO_ReadPin(Brake_pedal_input_GPIO_Port, Brake_pedal_input_Pin);
 }
 
-/**
- * Processes the received CAN message
- */
-void CAN_Receive() {
-	FDCAN_RxHeaderTypeDef header;
+void _Receive_CAN() {
+	CAN_RxHeaderTypeDef header;
 	uint8_t data[8];
 
-	if (HAL_FDCAN_GetRxMessage(fdcan, FDCAN_RX_FIFO0, &header, data) != HAL_OK) {
-		CAN_Error();
+	if (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO0, &header, data) != HAL_OK) {
+//		User_Error_Handler(UERR_CAN_RECEIVE);
 		return;
 	}
 
-	switch (header.Identifier) {
-		case 0x185:
-			user_flags.can_synced = SET;
-			break;
+	switch (header.StdId) {
+//		case 0x185:
+//			user_flags.can_synced = SET;
+//			break;
 		case 0x190:
 			stw_state.A.bits = data[0];
 			stw_state.B.bits = data[1];
 			stw_state.C.bits = data[2];
 			stw_state.D.bits = data[3];
 			break;
-		case 0x123:
-			vehicle_state.rpm = ((uint16_t)data[0] << 8) | data[1];
-			break;
+//		case 0x123:
+//			vehicle_state.rpm = ((uint16_t)data[0] << 8) | data[1];
+//			break;
 		default: break;
 	}
-	return;
 }
 
-/**
- * Transmits the switch states and pedal position to CAN
- */
-void CAN_Send_Vcu() {
-	FDCAN_TxHeaderTypeDef header;
+void _Send_VCU_State_CAN() {
+	CAN_TxHeaderTypeDef header;
 	uint8_t data[6];
+	uint32_t mailbox;
 
-	header.Identifier = 0x129;
-	header.IdType = FDCAN_STANDARD_ID;
-	header.TxFrameType = FDCAN_DATA_FRAME;
-	header.DataLength = FDCAN_DLC_BYTES_6;
-	header.FDFormat = FDCAN_CLASSIC_CAN;
-	header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-	header.BitRateSwitch = FDCAN_BRS_OFF;
-	header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
-	header.MessageMarker = 0;
+	header.IDE = CAN_ID_STD;
+	header.StdId = 0x129;
+	header.RTR = CAN_RTR_DATA;
+	header.DLC = 6;
 
 	data[0] = vcu_state.A.bits;
 	data[1] = vcu_state.B.bits;
 
-	int32_t throttle_buffer = (pot_value.current * 100000) / 1023;
+	int32_t throttle_buffer = (throttle_value.current * 100000) / 1023;
 	data[2] = throttle_buffer >> 24;
 	data[3] = throttle_buffer >> 16;
 	data[4] = throttle_buffer >> 8;
 	data[5] = throttle_buffer;
 
-	if (HAL_FDCAN_AddMessageToTxFifoQ(fdcan, &header, data) != HAL_OK) {
-		CAN_Error();
+	if (HAL_CAN_AddTxMessage(_usr_can, &header, data, &mailbox) != HAL_OK) {
+		User_Error_Handler(UERR_CAN_MSG_SEND);
 		return;
 	}
 }
 
-/**
- * Sends a motor control CAN command
- * @param reference - the throttle setting to send
- */
-void CAN_Send_Mc(uint16_t reference) {
-	FDCAN_TxHeaderTypeDef header;
+void _Send_MC_Command_CAN(uint16_t reference) {
+	CAN_TxHeaderTypeDef header;
 	uint8_t data[4];
+	uint32_t mailbox;
 
-	header.Identifier = 0xA51;
-	header.IdType = FDCAN_EXTENDED_ID;
-	header.TxFrameType = FDCAN_DATA_FRAME;
-	header.DataLength = FDCAN_DLC_BYTES_4;
-	header.FDFormat = FDCAN_CLASSIC_CAN;
-	header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-	header.BitRateSwitch = FDCAN_BRS_OFF;
-	header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
-	header.MessageMarker = 0;
+	header.IDE = CAN_ID_EXT;
+	header.ExtId = 0xA51;
+	header.RTR = CAN_RTR_DATA;
+	header.DLC = 4;
 
 	int32_t throttle_buffer = (reference * 100000) / 1023;
 	if (stw_state.A.REVERSE)
@@ -294,51 +278,50 @@ void CAN_Send_Mc(uint16_t reference) {
 	data[2] = throttle_buffer >> 8;
 	data[3] = throttle_buffer;
 
-	if (HAL_FDCAN_AddMessageToTxFifoQ(fdcan, &header, data) != HAL_OK)
-		CAN_Error();
+	if (HAL_CAN_AddTxMessage(_usr_can, &header, data, &mailbox) != HAL_OK) {
+		User_Error_Handler(UERR_CAN_MSG_SEND);
+	}
 }
 
-/**
- * Wiper task is executed every WIPER_INTERVAL milliseconds.
- * It controls the wiper position and state
- */
-void Wiper_Task() {
-	switch (wiper_state.step) {
+
+void _Wiper_Tick() {
+	switch (_wiper_state.step) {
 	case 0: // Standby state, waiting for wiper switch signal
 		if (vcu_state.A.WIPER == SET)
-			wiper_state.step = 1;
+			_wiper_state.step = 1;
 		break;
 	case 1: // Setup phase, start PWM and converter
-		wiper_pwm->Instance->CCR1 = 0;
-		HAL_TIM_PWM_Start(wiper_pwm, TIM_CHANNEL_1);
-		HAL_GPIO_WritePin(OUT_WIPER_CONVERTER_GPIO_Port, OUT_WIPER_CONVERTER_Pin, GPIO_PIN_SET);
-		wiper_state.running = SET;
-		wiper_state.step = 2;
+		_usr_wiper_pwm->Instance->CCR1 = WIPER_LEFT;
+		HAL_TIM_PWM_Start(_usr_wiper_pwm, TIM_CHANNEL_1);
+		HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_SET);
+		_wiper_state.running = SET;
+		_wiper_state.step = 2;
 		break;
 	case 2: // Wipe Right
-		wiper_pwm->Instance->CCR1 = WIPER_RIGHT;
+		_usr_wiper_pwm->Instance->CCR1 = WIPER_RIGHT; // Right
 		if (vcu_state.A.WIPER == RESET) {
-			wiper_state.step = 4;
+			_wiper_state.step = 4;
 		} else {
-			wiper_state.step = 3;
+			_wiper_state.step = 3;
 		}
 		break;
 	case 3: // Wipe Left
-		wiper_pwm->Instance->CCR1 = WIPER_LEFT;
+		_usr_wiper_pwm->Instance->CCR1 = WIPER_LEFT; // Left
 		if (vcu_state.A.WIPER == RESET) {
-			wiper_state.step = 4;
+			_wiper_state.step = 4;
 		} else {
-			wiper_state.step = 2;
+			_wiper_state.step = 2;
 		}
 		break;
 	case 4: // Go to the center
-		wiper_pwm->Instance->CCR1 = WIPER_CENTER;
-		wiper_state.step = 5;
+		_usr_wiper_pwm->Instance->CCR1 = WIPER_CENTER;
+		_wiper_state.step = 5;
+		break;
 	case 5: // Turn off and go to standby
-		HAL_TIM_PWM_Stop(wiper_pwm, TIM_CHANNEL_1);
-		HAL_GPIO_WritePin(OUT_WIPER_CONVERTER_GPIO_Port, OUT_WIPER_CONVERTER_Pin, GPIO_PIN_RESET);
-		wiper_state.running = RESET;
-		wiper_state.step = 0;
+		HAL_TIM_PWM_Stop(_usr_wiper_pwm, TIM_CHANNEL_1);
+		HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
+		_wiper_state.running = RESET;
+		_wiper_state.step = 0;
 		break;
 	default:
 		break;
@@ -346,86 +329,123 @@ void Wiper_Task() {
 }
 
 
-// *** External functions ***
+void _Init_CAN() {
+	CAN_FilterTypeDef filter_1;
+	filter_1.FilterBank = 14;
+	filter_1.SlaveStartFilterBank = 14;
+	filter_1.FilterMode = CAN_FILTERMODE_IDLIST;
+	filter_1.FilterScale = CAN_FILTERSCALE_16BIT;
+	filter_1.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+	filter_1.FilterActivation = CAN_FILTER_ENABLE;
+	filter_1.FilterIdHigh = 0x190 << 5;
+	filter_1.FilterIdLow = 0x123 << 5;
+	filter_1.FilterMaskIdHigh = 0x190 << 5;
+	filter_1.FilterMaskIdLow = 0x123 << 5;
+	if (HAL_CAN_ConfigFilter(_usr_can, &filter_1) != HAL_OK) {
+		User_Error_Handler(UERR_CAN_FILTER_CONFIG);
+	}
 
-/**
- * Initializes the user defined variables
- * @param adc_ptr - pointer to the ADC instance to use for the pedal
- * @param fdcan_ptr - pointer to the CAN instance for sending and receiving data
- * @param wiper_pwm_ptr - pointer to the timer configured in PWM mode which controls the wiper servo
- */
-void User_Init(ADC_HandleTypeDef *adc_ptr, FDCAN_HandleTypeDef *fdcan_ptr, TIM_HandleTypeDef *wiper_pwm_ptr) {
-	pot_adc = adc_ptr;
-	fdcan = fdcan_ptr;
-	wiper_pwm = wiper_pwm_ptr;
+	if (HAL_CAN_Start(_usr_can) != HAL_OK)
+	{
+	  User_Error_Handler(UERR_CAN_START);
+	}
 
+//	if (HAL_CAN_ActivateNotification(_usr_can, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK)
+//	{
+//	  User_Error_Handler(UERR_CAN_NOTIFY_ACTIVATE);
+//	}
+}
+
+void _Reset_Outputs() {
+	HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(LED2_Red_GPIO_Port, LED2_Red_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(LED4_Blue_GPIO_Port, LED4_Blue_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
+}
+
+void User_Timer_Callback(TIM_HandleTypeDef *timer) {
+	_timer_counters.can_msg++;
+	_timer_counters.wiper_tick++;
+	if (_timer_counters.can_msg >= CAN_INTERVAL) {
+		user_flags.send_can = SET;
+		_timer_counters.can_msg = 0;
+	}
+	if (_timer_counters.wiper_tick >= WIPER_INTERVAL) {
+		user_flags.wiper_tick = SET;
+		_timer_counters.wiper_tick = 0;
+	}
+}
+
+void User_ADC_Callback(ADC_HandleTypeDef *adc) {
+	throttle_value.adc = HAL_ADC_GetValue(adc);
+	HAL_ADC_Start_IT(adc);
+}
+
+void _Reset_Variables() {
 	vcu_state.A.bits = 0b00000000;
 	vcu_state.B.bits = 0b00000000;
 	stw_state.A.bits = 0b00000000;
 	stw_state.B.bits = 0b00000000;
 	stw_state.C.bits = 0b00000000;
 	stw_state.D.bits = 0b00000000;
-	user_flags.can_receive = RESET;
-	user_flags.can_synced = RESET;
-	user_flags.interval_CAN = RESET;
-	user_flags.interval_wiper = RESET;
-	user_flags.adc_conversion = RESET;
-	vehicle_state.rpm = 0;
+	user_flags.receive_can = RESET;
+	user_flags.send_can = RESET;
+	user_flags.wiper_tick = RESET;
+	wheel_rpm = 0;
 	drive_state.current = D_NEUTRAL;
 	drive_state.prev = D_NEUTRAL;
-	pot_value.current = POT_ZERO;
-	pot_value.prev = POT_ZERO;
-	pot_value.ema = POT_ZERO;
-	rate_limiter.current = 0;
-	rate_limiter.prev = 0;
-	wiper_state.running = RESET;
-	wiper_state.step = 0;
+	throttle_value.current = POT_ZERO;
+	throttle_value.prev = POT_ZERO;
+	throttle_value.ema = POT_ZERO;
+	_rate_limiter.current = 0;
+	_rate_limiter.prev = 0;
+	_wiper_state.running = RESET;
+	_wiper_state.step = 0;
+	_timer_counters.can_msg = 0;
 }
 
-/**
- * Main loop for user tasks, should be called in the main while loop
- */
+void User_Init(ADC_HandleTypeDef *adc_ptr, CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UART_HandleTypeDef *uart_ptr) {
+	_usr_throttle_adc = adc_ptr;
+	_usr_can = can_ptr;
+	_usr_wiper_pwm = wiper_pwm_ptr;
+	_usr_uart = uart_ptr;
+
+	_Reset_Outputs();
+	_Reset_Variables();
+	_Init_CAN();
+
+	HAL_ADC_Start_IT(adc_ptr);
+}
+
 void User_Loop() {
-	Port_Update();
+	_Read_GPIO_Inputs();
 
-// 	interrupt only fires once for some reason :c
-// 	but polling works
-//	if (user_flags.can_receive == SET) {
-	CAN_Receive();
-//		user_flags.can_receive = RESET;
+// TODO: fix CAN interrupt not working :c
+//	if (user_flags.receive_can == SET) {
+		_Receive_CAN();
+//		if (HAL_CAN_GetRxFifoFillLevel(_usr_can, CAN_RX_FIFO0) == 0) {
+//			user_flags.receive_can = RESET;
+//		}
 //	}
 
-//	If the shell relay is on, cut the acceleration
-	if (vcu_state.B.RELAY_NO == SET) {
-		stw_state.A.ACC = RESET;
-		stw_state.A.DRIVE = RESET;
-		stw_state.A.REVERSE = RESET;
-//		vcu_state.A.MC_OW = RESET;
-	}
+	if (user_flags.send_can == SET) {
+		_Pot_Filter();
+		_Send_VCU_State_CAN();
 
-//	if (user_flags.adc_conversion == SET) {
-	Pot_Read_Filtered();
-//		user_flags.adc_conversion = RESET;
-//	}
-
-	if (user_flags.interval_CAN == SET) {
-		CAN_Send_Vcu();
-		if (vcu_state.A.MC_OW == RESET && vcu_state.A.AUTO == RESET) {
-			Drive_State_Update();
-			CAN_Send_Mc(Calculate_MC_Ref());
+		if (vcu_state.A.MC_OW == RESET && vcu_state.A.AUTONOMOUS == RESET) {
+			_Update_Drive_State();
+			_Send_MC_Command_CAN(_Calculate_MC_Ref());
 		}
-		user_flags.interval_CAN = RESET;
+
+		HAL_GPIO_TogglePin(LED4_Blue_GPIO_Port, LED4_Blue_Pin);
+		user_flags.send_can = RESET;
 	}
 
-	if (user_flags.interval_wiper == SET) {
-		Wiper_Task();
-		user_flags.interval_wiper = RESET;
+	if (user_flags.wiper_tick == SET) {
+		_Wiper_Tick();
+		user_flags.wiper_tick = RESET;
 	}
-}
 
-/**
- * Only used when debugging, otherwise CAN errors are ignored
- */
-void CAN_Error() {
-	return;
+	HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_SET);
 }
