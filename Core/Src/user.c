@@ -55,18 +55,17 @@ TIM_HandleTypeDef *_usr_wiper_pwm;
 UART_HandleTypeDef *_usr_uart;
 
 
-void User_Error_Handler(USER_ERROR err) {
-	__disable_irq();
-	HAL_GPIO_WritePin(LED2_Red_GPIO_Port, LED2_Red_Pin, GPIO_PIN_SET);
-	while (1) {
-		HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_RESET);
-		HAL_Delay(500);
-		for (uint8_t i = 0; i < err; ++i) {
-			HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_SET);
-			HAL_Delay(100);
-			HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_RESET);
-			HAL_Delay(100);
+void User_Error_Handler(USER_ERROR err, uint8_t fatal) {
+	if (fatal == SET) {
+		HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(LED2_Red_GPIO_Port, LED2_Red_Pin, GPIO_PIN_SET);
+		__disable_irq();
+		while (1) {
+			HAL_GPIO_TogglePin(LED2_Red_GPIO_Port, LED2_Red_Pin);
+			HAL_Delay(250);
 		}
+	} else {
+		HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_SET);
 	}
 }
 
@@ -80,6 +79,10 @@ uint16_t _Rate_Limit(uint16_t value) {
     return _rate_limiter.current;
 }
 
+
+/**
+ * Raw ADC reader function, uses polling, deprecated in favor of interrupts
+ */
 //uint16_t ADC_Read() {
 //	uint16_t value;
 //	HAL_ADC_Start(_usr_throttle_adc);
@@ -90,10 +93,16 @@ uint16_t _Rate_Limit(uint16_t value) {
 //	return value;
 //}
 
+
+/**
+ * Reads, filters and debounces the current value of the potentiometer
+ * @uses_global throttle_value, POT_ZERO, POT_EMA, POT_STEP, POT_VALUES
+ */
 void _Pot_Filter() {
 	throttle_value.prev = throttle_value.current;
 	throttle_value.current = throttle_value.adc;
 
+//	debug message 1
 //	char msg[32];
 //	uint32_t len = sprintf(msg, "RAW: %d\r\n", throttle_value.adc);
 //	HAL_UART_Transmit(_usr_uart, (uint8_t*)msg, len, 100);
@@ -114,11 +123,16 @@ void _Pot_Filter() {
 		throttle_value.current = POT_VALUES[19];
 	}
 
+//	debug message 2
 //	char msg2[32];
 //	uint32_t len2 = sprintf(msg2, "FILTER: %d\r\n", throttle_value.current);
 //	HAL_UART_Transmit(_usr_uart, (uint8_t*)msg2, len2, 100);
 }
 
+/**
+ * Updates the drive state machine
+ * @uses_global drive_state, stw_state, vcu_state
+ */
 void _Update_Drive_State() {
 	drive_state.prev = drive_state.current;
 	if (vcu_state.A.MC_OW == RESET) {
@@ -214,7 +228,7 @@ void _Receive_CAN() {
 	uint8_t data[8];
 
 	if (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO0, &header, data) != HAL_OK) {
-//		User_Error_Handler(UERR_CAN_RECEIVE);
+//		User_Error_Handler(UERR_CAN_RECEIVE, 0);
 		return;
 	}
 
@@ -228,9 +242,9 @@ void _Receive_CAN() {
 			stw_state.C.bits = data[2];
 			stw_state.D.bits = data[3];
 			break;
-//		case 0x123:
-//			vehicle_state.rpm = ((uint16_t)data[0] << 8) | data[1];
-//			break;
+		case 0x123:
+			wheel_rpm = ((uint16_t)data[0] << 8) | data[1];
+			break;
 		default: break;
 	}
 }
@@ -255,7 +269,7 @@ void _Send_VCU_State_CAN() {
 	data[5] = throttle_buffer;
 
 	if (HAL_CAN_AddTxMessage(_usr_can, &header, data, &mailbox) != HAL_OK) {
-		User_Error_Handler(UERR_CAN_MSG_SEND);
+		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
 		return;
 	}
 }
@@ -279,7 +293,7 @@ void _Send_MC_Command_CAN(uint16_t reference) {
 	data[3] = throttle_buffer;
 
 	if (HAL_CAN_AddTxMessage(_usr_can, &header, data, &mailbox) != HAL_OK) {
-		User_Error_Handler(UERR_CAN_MSG_SEND);
+		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
 	}
 }
 
@@ -342,17 +356,17 @@ void _Init_CAN() {
 	filter_1.FilterMaskIdHigh = 0x190 << 5;
 	filter_1.FilterMaskIdLow = 0x123 << 5;
 	if (HAL_CAN_ConfigFilter(_usr_can, &filter_1) != HAL_OK) {
-		User_Error_Handler(UERR_CAN_FILTER_CONFIG);
+		User_Error_Handler(UERR_CAN_FILTER_CONFIG, 1);
 	}
 
 	if (HAL_CAN_Start(_usr_can) != HAL_OK)
 	{
-	  User_Error_Handler(UERR_CAN_START);
+		User_Error_Handler(UERR_CAN_START, 1);
 	}
 
 //	if (HAL_CAN_ActivateNotification(_usr_can, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK)
 //	{
-//	  User_Error_Handler(UERR_CAN_NOTIFY_ACTIVATE);
+//		User_Error_Handler(UERR_CAN_NOTIFY_ACTIVATE, 0); // will be fatal when actually using interrupts
 //	}
 }
 
@@ -416,10 +430,14 @@ void User_Init(ADC_HandleTypeDef *adc_ptr, CAN_HandleTypeDef *can_ptr, TIM_Handl
 	_Init_CAN();
 
 	HAL_ADC_Start_IT(adc_ptr);
+
+	HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_SET);
 }
 
 void User_Loop() {
 	_Read_GPIO_Inputs();
+
+	HAL_GPIO_WritePin(Brake_light_GPIO_Port, Brake_light_Pin, vcu_state.A.BRAKE);
 
 // TODO: fix CAN interrupt not working :c
 //	if (user_flags.receive_can == SET) {
@@ -445,7 +463,6 @@ void User_Loop() {
 	if (user_flags.wiper_tick == SET) {
 		_Wiper_Tick();
 		user_flags.wiper_tick = RESET;
+		HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_RESET);
 	}
-
-	HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_SET);
 }

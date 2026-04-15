@@ -68,7 +68,9 @@ static void MX_TIM1_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	if (htim->Instance == TIM1) User_Timer_Callback(htim);
+	if (htim->Instance == TIM1) {
+		User_Timer_Callback(htim);
+	}
 }
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 	User_ADC_Callback(hadc);
@@ -414,7 +416,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, LED1_Yellow_Pin|LED2_Red_Pin|LED3_Green_Pin|LED4_Blue_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, Brake_light_Pin|Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : Headlight_switch_Pin Lights_enable_switch_Pin Autonomous_switch_Pin Motorcontrol_override_switch_Pin */
   GPIO_InitStruct.Pin = Headlight_switch_Pin|Lights_enable_switch_Pin|Autonomous_switch_Pin|Motorcontrol_override_switch_Pin;
@@ -434,6 +436,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Brake_light_Pin */
+  GPIO_InitStruct.Pin = Brake_light_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(Brake_light_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : Clutch_pedal_input_Pin Brake_pedal_input_Pin */
   GPIO_InitStruct.Pin = Clutch_pedal_input_Pin|Brake_pedal_input_Pin;
@@ -465,7 +474,7 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
-  User_Error_Handler(UERR_UNKNOWN);
+  User_Error_Handler(UERR_UNKNOWN, SET);
   while (1)
   {
   }

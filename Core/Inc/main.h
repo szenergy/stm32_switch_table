@@ -79,6 +79,8 @@ void Error_Handler(void);
 #define Motorcontrol_override_switch_GPIO_Port GPIOC
 #define Wiper_switch_Pin GPIO_PIN_0
 #define Wiper_switch_GPIO_Port GPIOB
+#define Brake_light_Pin GPIO_PIN_10
+#define Brake_light_GPIO_Port GPIOB
 #define Clutch_pedal_input_Pin GPIO_PIN_8
 #define Clutch_pedal_input_GPIO_Port GPIOA
 #define Brake_pedal_input_Pin GPIO_PIN_9

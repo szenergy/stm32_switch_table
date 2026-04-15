@@ -194,6 +194,6 @@ typedef enum {
 	UERR_CAN,
 } USER_ERROR;
 
-void User_Error_Handler(USER_ERROR err);
+void User_Error_Handler(USER_ERROR err, uint8_t fatal);
 
 #endif /* INC_USER_H_ */
