@@ -116,21 +116,31 @@ int main(void)
   MX_TIM14_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+
+  // Start the "wake-up" timer,
+  // this will wake the CPU every 50ms
   HAL_TIM_Base_Start_IT(&htim14);
+
+  // Start the throttle pedal reading ADC in DMA mode
+  // and its trigger timer that fires every 5ms
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)throttle_adc_buffer, 10);
   HAL_TIM_Base_Start(&htim2);
+
+  // Initialize the `user.c`
   User_Init(&hcan2, &htim3, &huart1);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  // Execute the tasks once then go to sleep until the TIM14 triggers again
 	  if (wake_up_flag == SET) {
 		User_Loop();
 		wake_up_flag = RESET;
-		HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
 	  }
+	HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
