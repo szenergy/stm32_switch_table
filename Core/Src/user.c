@@ -8,6 +8,10 @@
  */
 
 #include "user.h"
+#ifdef UART_DEBUG
+#include <stdarg.h>
+#include <stdio.h>
+#endif
 
 struct {
 	VCU_STATE_A A;
@@ -54,8 +58,37 @@ CAN_HandleTypeDef *_usr_can;
 TIM_HandleTypeDef *_usr_wiper_pwm;
 UART_HandleTypeDef *_usr_uart;
 
+static void _Debug_Msg(const char *fmt, ...) {
+#ifdef UART_DEBUG_ENABLE
+	if (fmt == NULL || _usr_uart == NULL) {
+		return;
+	}
+
+	char msg[128];
+	va_list args;
+	va_start(args, fmt);
+	int len = vsnprintf(msg, sizeof(msg) - 2U, fmt, args);
+	va_end(args);
+
+	if (len < 0) {
+		return;
+	}
+
+	size_t tx_len = (len >= (int)(sizeof(msg) - 2U)) ? (sizeof(msg) - 3U) : (size_t)len;
+//	msg[tx_len++] = '\r';
+//	msg[tx_len++] = '\n';
+
+	HAL_UART_Transmit(_usr_uart, (uint8_t *)msg, (uint16_t)tx_len, 100U);
+#else
+	(void)fmt;
+#endif
+}
+
 
 void User_Error_Handler(USER_ERROR err, uint8_t fatal) {
+	#ifdef ERROR_DEBUG
+	_Debug_Msg("ERROR = %d ; FATAL = %d\r\n", err, fatal);
+	#endif
 	if (fatal == SET) {
 		HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(LED2_Red_GPIO_Port, LED2_Red_Pin, GPIO_PIN_SET);
@@ -102,10 +135,9 @@ void _Pot_Filter() {
 	throttle_value.prev = throttle_value.current;
 	throttle_value.current = throttle_value.adc;
 
-//	debug message 1
-//	char msg[32];
-//	uint32_t len = sprintf(msg, "RAW: %d\r\n", throttle_value.adc);
-//	HAL_UART_Transmit(_usr_uart, (uint8_t*)msg, len, 100);
+	#ifdef POT_FILTER_DEBUG
+	_Debug_Msg("ADC : RAW = %d", throttle_value.adc);
+	#endif
 
 	if (throttle_value.current > POT_ZERO) {
         throttle_value.ema = (POT_EMA * throttle_value.current) + ((1 - POT_EMA) * throttle_value.ema);
@@ -123,10 +155,9 @@ void _Pot_Filter() {
 		throttle_value.current = POT_VALUES[19];
 	}
 
-//	debug message 2
-//	char msg2[32];
-//	uint32_t len2 = sprintf(msg2, "FILTER: %d\r\n", throttle_value.current);
-//	HAL_UART_Transmit(_usr_uart, (uint8_t*)msg2, len2, 100);
+	#ifdef POT_FILTER_DEBUG
+	_Debug_Msg(" ; FILTER = %d\r\n", throttle_value.current);
+	#endif
 }
 
 /**
@@ -134,6 +165,9 @@ void _Pot_Filter() {
  * @uses_global drive_state, stw_state, vcu_state
  */
 void _Update_Drive_State() {
+	#ifdef DRIVE_STATE_DEBUG
+	_Debug_Msg("STATE : PREV = %d", drive_state.current);
+	#endif
 	drive_state.prev = drive_state.current;
 	if (vcu_state.A.MC_OW == RESET) {
 		if (stw_state.A.DRIVE == RESET && stw_state.A.REVERSE == RESET) {
@@ -156,6 +190,9 @@ void _Update_Drive_State() {
 	} else {
 		drive_state.current = D_NEUTRAL;
 	}
+	#ifdef DRIVE_STATE_DEBUG
+	_Debug_Msg("; NOW = %d\r\n", drive_state.current);
+	#endif
 }
 
 uint16_t _Calculate_MC_Ref() {
@@ -209,6 +246,10 @@ uint16_t _Calculate_MC_Ref() {
 	} else {
 		reference = 0;
 	}
+
+	#ifdef MC_REF_DEBUG
+	_Debug_Msg("MC_REF = %d\r\n", drive_state.current);
+	#endif
 
 	return _Rate_Limit(reference);
 }
