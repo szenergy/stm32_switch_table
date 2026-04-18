@@ -1,82 +1,51 @@
 # STM32 Switch Table for SZEmission
 
-The switch table is the "brain" of the car, used for controlling most functions like lights, wiper, and brake. It processes the inputs from the switches, steering wheel and pedal then compiles them into it's state and sends that out over the CAN bus. It can also send motor control commands when the override switch is turned off.
+The switch table is the "brain" of the car, used for controlling functions like lights, wiper, brake and acceleration. It processes the inputs from the switches, steering wheel and throttle pedal then compiles them into it's state message and sends that out over CAN.
 
 ## Features
 
 1. **State Broadcasting**: Sends a CAN message every 50ms about its own state (switch positions, throttle position)
-2. **Wiper Control**: Controls the wiper converter and servo with PWM
-4. **Throttle Input**: Reads and filters the analog potentiometer on the throttle pedal
-5. **Motor Control**: Optionally sends motor control CAN messages 
+2. **Wiper Control**: Controls the wiper's DC-DC converter and servo with PWM
+3. **Throttle Input**: Reads and filters the analog potentiometer connected to the throttle pedal
+4. **Motor Control**: Optionally sends throttle reference commands to the motor controller over CAN
 
-## Test hardware
+## Hardware
+
+### First prototype
 
 Nucleo C092RC Development Board
+
 - **Microcontroller**: STM32C092RCTx (LQFP64)
 - **Clock**: Internal HSI oscillator running at 48MHz
 - **CAN Interface**: FDCAN1 using the on-board CAN transceiver
-- **Programmer/Debugger**: Nucleo built-in ST-Link 
+- **Programmer/Debugger**: Nucleo built-in ST-Link
 
-## Communication Protocols
+### Deployment
 
-This controller uses 4 types of IO to achieve its functionality:
+Custom board: "Switch Table v4"
 
-- **CAN bus** for communicating with the various components of the car
-- **GPIO** to read switch positions and control some outputs
-- **ADC** (Analog to Digital conversion) to read the throttle pedal potentiometer
-- **PWM** for controlling the wiper servo motor
+- **Microcontroller**: STM32F412RET6 (LQFP64)
+- **Clock**: 8MHz external crystal, HSE
+- **CAN Interface**: CAN2 using an ESDCAN24-2BLY transceiver
+- **Programmer/Debugger**: External ST-Link programmer
 
-### Pin Configuration
+## MCU Peripherals Used
 
-#### CAN Bus
+This project uses 4 types of peripherals to achive it's functionality:
 
-| Signal    | Pin | Direction |
-|-----------|-----|-----------|
-| FDCAN1_RX | PC2 | Input     |
-| FDCAN1_TX | PC3 | Output    |
+### CAN bus
 
-#### GPIO Inputs (Switches)
+The CAN2 peripheral is used for CAN communication on the pins PB12 and PB13.
 
-| Function                     | Name           | Pin  | Type          |
-|------------------------------|----------------|------|---------------|
-| Switch used to enable lights | SW_LIGHTS      | PC8  | Digital Input |
-| Wiper on/off                 | SW_WIPER       | PC6  | Digital Input |
-| Hazard signal                | SW_HAZARD      | PC13 | Digital Input |
-| Autonomous mode switch       | SW_AUTO        | PC11 | Digital Input |
-| Motor control override       | SW_MC_OW       | PC7  | Digital Input |
-| Headlight switch             | SW_HEADLIGHT   | PC0  | Digital Input |
-| Shell relay input            | IN_SHELL_RELAY | PC1  | Digital Input |
-| Brake pedal input            | IN_BRAKE       | PC12 | Digital Input |
+The messages used are the following:
 
-#### GPIO Outputs
+| Direction | ID | Name | Description |
+| Received | 0x190 | Steering_Wheel | Button and switch information from the steering wheel |
+| Received | 0x123 | Encoder | Wheel RPM measurement from the encoder |
+| Sent | 0x129 | VCU_State | Switch positions and filtered throttle |
+| Sent | 0xA51 | MC_Command | Torque reference for the motor controller |
 
-| Function               | Name                | Pin | Type           |
-|------------------------|---------------------|-----|----------------|
-| Wiper converter enable | OUT_WIPER_CONVERTER | PD3 | Digital Output |
-
-#### ADC Input
-
-| Function               | Name     | Pin |
-|------------------------|----------|-----|
-| Throttle Potentiometer | ADC1_IN0 | PA0 |
-
-#### PWM Output
-
-| Function            | Timer | Channel | Pin |
-|---------------------|-------|---------|-----|
-| Wiper Servo Control | TIM2  | CH1     | PA5 |
-
-### CAN Bus Messages
-
-#### Received Messages
-
-| ID    | ID Type  | Name                | Purpose                                                         |
-|-------|----------|---------------------|-----------------------------------------------------------------|
-| **0x185** | Standard | Sync State          | No idea                                                         |
-| **0x190** | Standard | Steering Wheel      | State of buttons and position of switches on the steering wheel |
-| **0x123** | Standard | RPM Measurement     | RPM data from the posigion sensor                               |
-
-##### Steering Wheel State (0x190) Bit Fields
+#### Steering Wheel State (0x190)
 
 ```
 Byte 0 (STW_STATE_A):
@@ -92,14 +61,7 @@ Byte 0 (STW_STATE_A):
 Bytes 1-3: Position of the 3 switches on the steering wheel (STW_STATE_B/C/D)
 ```
 
-#### Transmitted Messages
-
-| ID    | Type     | Purpose       | Data Format                                                   | Rate |
-|-------|----------|---------------|---------------------------------------------------------------|------|
-| **0x129** | Standard | VCU State     | Bytes 0-1: VCU_STATE_A/B, Bytes 2-5: Throttle % (fixed-point) | 20Hz |
-| **0xA51** | Extended | Motor Control | Bytes 0-3: Throttle reference (fixed-point, signed)           | 20Hz |
-
-##### VCU State (0x129) Bit Fields
+#### VCU State (0x129)
 
 ```
 Byte 0 (VCU_STATE_A):
@@ -118,9 +80,49 @@ Byte 1 (VCU_STATE_B):
   Bits 2-7: Reserved
 ```
 
+### Timers
+
+- TIM2 is used to trigger the ADC
+- TIM3 is for PWM generation to the wiper, on it's CH1 output (pin PB4)
+- TIM14 is the tick timer that fires every 50ms to wake up the CPU
+
+### Analog to digital
+
+ADC1 with IN0 on pin PA0 is used to read the throttle pedal position. It is started in DMA mode with the TIM2 timer triggering it every 5ms. It writes the conversions to the `throttle_adc_buffer` variable.
+
+### UART
+
+This is only used for debugging purposes. In the `user.h` file, its possible to set what debug outputs the MCU sends over UART.
+
+## Pin Configuration
+
+![Picture of the STM32F412RET6 from CubeMX](./docs/sw_table_v4_pin_config.png)
+
+| Function                     | Name                         | Pin  | Type         |
+| ---------------------------- | ---------------------------- | ---- | ------------ |
+| Switch used to enable lights | Lights_enable_switch         | PC3  | GPIO Input   |
+| Wiper on/off                 | Wiper_switch                 | PB0  | GPIO Input   |
+| Hazard signal                | Hazard_switch                | PB5  | GPIO Input   |
+| Autonomous mode switch       | Autonomous_switch            | PC4  | GPIO Input   |
+| Motor control override       | Motorcontrol_override_switch | PC5  | GPIO Input   |
+| Headlight switch             | Headlight_switch             | PC13 | GPIO Input   |
+| Brake pedal input            | Brake_pedal_input            | PA9  | GPIO Input   |
+| Brake pedal input            | Clutch_pedal_input           | PA8  | GPIO Input   |
+| Wiper converter enable       | OUT_WIPER_CONVERTER          | PD3  | GPIO Output  |
+| Throttle Potentiometer       | Throttle_pedal_ADC           | PA0  | ADC Input    |
+| Wiper Servo Control          | Wiper_PWM                    | PB4  | TIM3 PWM CH1 |
+| Yellow debug LED             | LED1_Yellow                  | PA1  | GPIO Output  |
+| Red error LED                | LED2_Red                     | PA2  | GPIO Output  |
+| Green status LED             | LED3_Green                   | PA3  | GPIO Output  |
+| Blue debug LED               | LED4_Blue                    | PA4  | GPIO Output  |
+| CAN Receive                  | CAN2_RX                      | PB12 | CAN2_RX      |
+| CAN Transmit                 | CAN2_TX                      | PB13 | CAN2_TX      |
+| UART Receive                 | USART1_RX                    | PB7  | USART1_RX    |
+| UART Receive                 | USART1_TX                    | PB6  | USART1_TX    |
+
 ## Code Structure
 
-This code is designed to minimize the amount of user code in generated files. The main working logic is in `user.c` and `user.h`.
+This code is designed to minimize the amount of user code in generated files. The main working logic is in `user.c` and `user.h`. Another key factor is limiting power consumption, which means also limiting CPU time.
 
 ### Directory Breakdown
 
@@ -130,40 +132,33 @@ sw_table_stm32/
 ├── sw_table_stm32.pdf            # Auto-generated hardware pinout diagram
 ├── Core/
 │   ├── Inc/
-│   │   ├── main.h               # Generated header (pin definitions)
+│   │   ├── main.h               # Generated header, contains the pin definitions
 │   │   └── user.h               # User-defined functions and structures
 │   ├── Src/
-│   │   ├── main.c               # Main entry point and initialization
-│   │   └── user.c               # User-defined functions (motor control, CAN, GPIO)
+│   │   ├── main.c               # Main entry point and peripheral initialization
+│   │   └── user.c               # User-defined functions, main controller logic
 ```
 
 ### Key Files
 
-- **main.c**: System initialization, timer setup, interrupt handlers and main loop entry point
+- **main.c**: System initialization, timer setup, interrupt handlers and main function (entry point)
 - **user.c**: Core application logic including CAN communication, GPIO control, and throttle processing
-- **user.h**: Data structures, function declarations, and most importantly declarations for constants
+- **user.h**: Data structures, function declarations and constant definitions
 
-### Timer Configuration
+## Development Guidelines
 
-- **TIM1**: Base timer for interval management (1ms period)
-  - Used for CAN message intervals (20Hz)
-  - Used for wiper control intervals (750ms)
-- **TIM2**: PWM timer for wiper servo control (50Hz clock)
-
-
-## Development Guidelines 
-
-- **Use fixed-point math** instead of floating-point (no FPU)
+- **Use fixed-point math** instead of floating-point where possible because its faster
 - **Keep ISRs short**: Set flags and do the actual processing in main loop
-
-### Power Optimization
-
-See `TODO.md` for a detailed power optimization roadmap. Key strategies:
+- **Power efficiency is key**: Try to use DMA and other hardware logic to limit CPU usage as much as possible
 
 ---
 
-## Authors
+### Authors
 
 Created by **SZEnergy Team** for Shell Eco Marathon
 
 - **Váradi Marcell** (varma02@GitHub)
+
+### License
+
+This project is licensed under the MIT License - see the [license](license) file for details.
