@@ -135,11 +135,17 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // Execute the tasks once then go to sleep until the TIM14 triggers again
+#ifdef SLEEP_DEBUG
+	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_SET);
+#endif
+	  // Execute the tasks once, then go to sleep until the TIM14 triggers again
 	  if (wake_up_flag == SET) {
 		User_Loop();
 		wake_up_flag = RESET;
 	  }
+#ifdef SLEEP_DEBUG
+	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_RESET);
+#endif
 	HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
     /* USER CODE END WHILE */
 
@@ -475,6 +481,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, Brake_light_Pin|Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pins : Headlight_switch_Pin Lights_enable_switch_Pin Autonomous_switch_Pin Motorcontrol_override_switch_Pin */
   GPIO_InitStruct.Pin = Headlight_switch_Pin|Lights_enable_switch_Pin|Autonomous_switch_Pin|Motorcontrol_override_switch_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -506,6 +515,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Debug_Out_Pin */
+  GPIO_InitStruct.Pin = Debug_Out_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(Debug_Out_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Wiper_DCDC_enable_Pin */
   GPIO_InitStruct.Pin = Wiper_DCDC_enable_Pin;

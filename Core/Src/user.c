@@ -39,12 +39,12 @@ struct {
 } throttle_value;
 
 uint8_t wiper_ARR = 0;
-struct WIPER_STATE _wiper_state;
+struct WIPER_STATE wiper_state;
 
 struct {
 	uint16_t current;
 	uint16_t prev;
-} _rate_limiter;
+} rate_limiter;
 
 CAN_HandleTypeDef *_usr_can;
 TIM_HandleTypeDef *_usr_wiper_pwm;
@@ -98,13 +98,13 @@ void User_Error_Handler(USER_ERROR err, uint8_t fatal) {
  * @return - rate limited value
  */
 uint16_t _Rate_Limit(uint16_t value) {
-	_rate_limiter.prev = _rate_limiter.current;
-	_rate_limiter.current = value;
-    if(2000 + _rate_limiter.current - _rate_limiter.prev > 2000 + RATE_LIMIT_UP)
-        _rate_limiter.current = _rate_limiter.prev + RATE_LIMIT_UP;
-    else if(2000 + _rate_limiter.current - _rate_limiter.prev < 2000 - RATE_LIMIT_DOWN)
-        _rate_limiter.current = _rate_limiter.prev - RATE_LIMIT_DOWN;
-    return _rate_limiter.current;
+	rate_limiter.prev = rate_limiter.current;
+	rate_limiter.current = value;
+    if(2000 + rate_limiter.current - rate_limiter.prev > 2000 + RATE_LIMIT_UP)
+        rate_limiter.current = rate_limiter.prev + RATE_LIMIT_UP;
+    else if(2000 + rate_limiter.current - rate_limiter.prev < 2000 - RATE_LIMIT_DOWN)
+        rate_limiter.current = rate_limiter.prev - RATE_LIMIT_DOWN;
+    return rate_limiter.current;
 }
 
 /**
@@ -245,8 +245,8 @@ uint16_t _Calculate_MC_Ref() {
 			}
 		}
 	} else if (drive_state.prev != D_NEUTRAL && drive_state.current == D_NEUTRAL) {
-		_rate_limiter.current = 0;
-		_rate_limiter.prev = 0;
+		rate_limiter.current = 0;
+		rate_limiter.prev = 0;
 		reference = 0;
 	} else {
 		reference = 0;
@@ -417,43 +417,42 @@ void _Send_MC_Command_CAN(uint16_t reference) {
  * The wiper positions and oscillation frequency are configurable from `user.h`.
  */
 void _Wiper_Tick() {
-	switch (_wiper_state.step) {
+	switch (wiper_state.step) {
 	case 0: // Standby state, waiting for wiper switch signal
 		if (vcu_state.A.WIPER == SET)
-			_wiper_state.step = 1;
+			wiper_state.step = 1;
 		break;
 	case 1: // Setup phase, start PWM and converter
-		_usr_wiper_pwm->Instance->CCR1 = WIPER_LEFT;
-		HAL_TIM_PWM_Start(_usr_wiper_pwm, TIM_CHANNEL_1);
 		HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_SET);
-		_wiper_state.running = SET;
-		_wiper_state.step = 2;
+		HAL_TIM_PWM_Start(_usr_wiper_pwm, TIM_CHANNEL_1);
+		wiper_state.running = SET;
+		wiper_state.step = 2;
 		break;
 	case 2: // Wipe Right
 		_usr_wiper_pwm->Instance->CCR1 = WIPER_RIGHT; // Right
 		if (vcu_state.A.WIPER == RESET) {
-			_wiper_state.step = 4;
+			wiper_state.step = 4;
 		} else {
-			_wiper_state.step = 3;
+			wiper_state.step = 3;
 		}
 		break;
 	case 3: // Wipe Left
 		_usr_wiper_pwm->Instance->CCR1 = WIPER_LEFT; // Left
 		if (vcu_state.A.WIPER == RESET) {
-			_wiper_state.step = 4;
+			wiper_state.step = 4;
 		} else {
-			_wiper_state.step = 2;
+			wiper_state.step = 2;
 		}
 		break;
-	case 4: // Go to the center
+	case 4: // Switch is off, go to the center
 		_usr_wiper_pwm->Instance->CCR1 = WIPER_CENTER;
-		_wiper_state.step = 5;
+		wiper_state.step = 5;
 		break;
 	case 5: // Turn off and go to standby
 		HAL_TIM_PWM_Stop(_usr_wiper_pwm, TIM_CHANNEL_1);
 		HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
-		_wiper_state.running = RESET;
-		_wiper_state.step = 0;
+		wiper_state.running = RESET;
+		wiper_state.step = 0;
 		break;
 	default:
 		break;
@@ -473,6 +472,8 @@ void _Reset_Outputs() {
 	HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(LED4_Blue_GPIO_Port, LED4_Blue_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(Brake_light_GPIO_Port, Brake_light_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_RESET);
 }
 
 /**
@@ -494,23 +495,24 @@ void _Reset_Variables() {
 	throttle_value.current = POT_ZERO;
 	throttle_value.prev = POT_ZERO;
 	throttle_value.ema = POT_ZERO;
-	_rate_limiter.current = 0;
-	_rate_limiter.prev = 0;
-	_wiper_state.running = RESET;
-	_wiper_state.step = 0;
+	rate_limiter.current = 0;
+	rate_limiter.prev = 0;
+	wiper_state.running = RESET;
+	wiper_state.step = 0;
 	wiper_ARR = 0;
 }
 
 /**
- * Initializes everything.
+ * Initializes CAN and variables, as well as resetting every GPIO output.
  */
 void User_Init(CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UART_HandleTypeDef *uart_ptr) {
+	_Reset_Variables();
+
 	_usr_can = can_ptr;
 	_usr_wiper_pwm = wiper_pwm_ptr;
 	_usr_uart = uart_ptr;
 
 	_Reset_Outputs();
-	_Reset_Variables();
 	_Init_CAN();
 
 	HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_SET);

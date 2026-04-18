@@ -44,7 +44,8 @@
 
 // UART debug options
 // un-comment any of these to enable its debug logging
-//#define UART_DEBUG_ENABLE   // this is needed for any of them to work
+//#define SLEEP_DEBUG
+//#define UART_DEBUG_ENABLE   // this is needed for any below
 //#define POT_RAW_DEBUG
 //#define POT_FILTER_DEBUG
 //#define DRIVE_STATE_DEBUG

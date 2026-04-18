@@ -85,6 +85,8 @@ void Error_Handler(void);
 #define Clutch_pedal_input_GPIO_Port GPIOA
 #define Brake_pedal_input_Pin GPIO_PIN_9
 #define Brake_pedal_input_GPIO_Port GPIOA
+#define Debug_Out_Pin GPIO_PIN_12
+#define Debug_Out_GPIO_Port GPIOC
 #define Wiper_PWM_Pin GPIO_PIN_4
 #define Wiper_PWM_GPIO_Port GPIOB
 #define Hazard_switch_Pin GPIO_PIN_5
