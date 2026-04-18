@@ -39,11 +39,12 @@ The CAN2 peripheral is used for CAN communication on the pins PB12 and PB13.
 
 The messages used are the following:
 
-| Direction | ID | Name | Description |
-| Received | 0x190 | Steering_Wheel | Button and switch information from the steering wheel |
-| Received | 0x123 | Encoder | Wheel RPM measurement from the encoder |
-| Sent | 0x129 | VCU_State | Switch positions and filtered throttle |
-| Sent | 0xA51 | MC_Command | Torque reference for the motor controller |
+| Direction | ID    | Name           | Description                                           |
+|-----------|-------|----------------|-------------------------------------------------------|
+| Received  | 0x190 | Steering_Wheel | Button and switch information from the steering wheel |
+| Received  | 0x123 | Encoder        | Wheel RPM measurement from the encoder                |
+| Sent      | 0x129 | VCU_State      | Switch positions and filtered throttle                |
+| Sent      | 0xA51 | MC_Command     | Torque reference for the motor controller             |
 
 #### Steering Wheel State (0x190)
 
