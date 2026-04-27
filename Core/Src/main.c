@@ -135,15 +135,21 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-#ifdef SLEEP_DEBUG
+#ifdef SLEEP_DEBUG_PIN
 	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_SET);
+#endif
+#ifdef UART_DEBUG
+	Debug_Msg("SLEEP", 0);
 #endif
 	  // Execute the tasks once, then go to sleep until the TIM14 triggers again
 	  if (wake_up_flag == SET) {
 		User_Loop();
 		wake_up_flag = RESET;
 	  }
-#ifdef SLEEP_DEBUG
+#ifdef UART_DEBUG
+	Debug_Msg("SLEEP", 1);
+#endif
+#ifdef SLEEP_DEBUG_PIN
 	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_RESET);
 #endif
 	HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
@@ -424,7 +430,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 19200;
+  huart1.Init.BaudRate = 500000;
   huart1.Init.WordLength = UART_WORDLENGTH_9B;
   huart1.Init.StopBits = UART_STOPBITS_2;
   huart1.Init.Parity = UART_PARITY_EVEN;
