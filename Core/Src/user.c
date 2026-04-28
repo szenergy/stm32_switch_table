@@ -35,7 +35,6 @@ uint16_t throttle_adc_buffer[10];
 struct {
 	uint16_t current;
 	uint16_t prev;
-	uint16_t ema;
 } throttle_value;
 
 uint8_t wiper_ARR = 0;
@@ -136,11 +135,6 @@ void _Pot_Filter() {
 #ifdef UART_DEBUG
 	Debug_Msg("POT_ADC_AVG", throttle_value.current);
 #endif
-
-//	if (throttle_value.current > POT_ZERO) {
-//        throttle_value.ema = (POT_EMA * throttle_value.current) + ((1 - POT_EMA) * throttle_value.ema);
-//        throttle_value.current = throttle_value.ema;
-//	}
 
 	if ((throttle_value.current - throttle_value.prev) <= POT_STEP)
 		throttle_value.current = throttle_value.prev;
@@ -427,19 +421,31 @@ void _Wiper_Tick() {
 		wiper_state.running = SET;
 		wiper_state.step = 2;
 		break;
+#ifdef WIPER_SWEEP_DEBUG
+	case 2:
+		for (uint16_t i = 0; i < _usr_wiper_pwm->Init.Period-20; i+=20){
+			if (HAL_GPIO_ReadPin(Wiper_switch_GPIO_Port, Wiper_switch_Pin) == GPIO_PIN_RESET) break;
+			_usr_wiper_pwm->Instance->CCR1 = i;
+#ifdef UART_DEBUG
+			Debug_Msg("WIPER_CCR", i);
+#endif
+			HAL_Delay(20);
+		}
+		wiper_state.step = 5;
+#else
 	case 2: // Wipe Right
-		_usr_wiper_pwm->Instance->CCR1 = WIPER_RIGHT; // Right
 		if (vcu_state.A.WIPER == RESET) {
 			wiper_state.step = 4;
 		} else {
+			_usr_wiper_pwm->Instance->CCR1 = WIPER_RIGHT; // Right
 			wiper_state.step = 3;
 		}
 		break;
 	case 3: // Wipe Left
-		_usr_wiper_pwm->Instance->CCR1 = WIPER_LEFT; // Left
 		if (vcu_state.A.WIPER == RESET) {
 			wiper_state.step = 4;
 		} else {
+			_usr_wiper_pwm->Instance->CCR1 = WIPER_LEFT; // Left
 			wiper_state.step = 2;
 		}
 		break;
@@ -447,6 +453,7 @@ void _Wiper_Tick() {
 		_usr_wiper_pwm->Instance->CCR1 = WIPER_CENTER;
 		wiper_state.step = 5;
 		break;
+#endif
 	case 5: // Turn off and go to standby
 		HAL_TIM_PWM_Stop(_usr_wiper_pwm, TIM_CHANNEL_1);
 		HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
@@ -538,7 +545,7 @@ void User_Loop() {
 		_Send_MC_Command_CAN(_Calculate_MC_Ref());
 	}
 
-	if (wiper_ARR++ >= WIPER_PSC) {
+	if (wiper_ARR++ >= WIPER_PERIOD) {
 		_Wiper_Tick();
 		wiper_ARR = 0;
 
