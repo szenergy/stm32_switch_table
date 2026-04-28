@@ -437,7 +437,7 @@ void _Wiper_Tick() {
 		if (vcu_state.A.WIPER == RESET) {
 			wiper_state.step = 4;
 		} else {
-			_usr_wiper_pwm->Instance->CCR1 = WIPER_RIGHT; // Right
+			_usr_wiper_pwm->Instance->CCR1 = WIPER_RIGHT;
 			wiper_state.step = 3;
 		}
 		break;
@@ -445,7 +445,7 @@ void _Wiper_Tick() {
 		if (vcu_state.A.WIPER == RESET) {
 			wiper_state.step = 4;
 		} else {
-			_usr_wiper_pwm->Instance->CCR1 = WIPER_LEFT; // Left
+			_usr_wiper_pwm->Instance->CCR1 = WIPER_LEFT;
 			wiper_state.step = 2;
 		}
 		break;
