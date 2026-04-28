@@ -500,7 +500,6 @@ void _Reset_Variables() {
 	}
 	throttle_value.current = POT_ZERO;
 	throttle_value.prev = POT_ZERO;
-	throttle_value.ema = POT_ZERO;
 	rate_limiter.current = 0;
 	rate_limiter.prev = 0;
 	wiper_state.running = RESET;
