@@ -8,7 +8,7 @@
  */
 
 #include "user.h"
-#ifdef UART_DEBUG_ENABLE
+#ifdef UART_DEBUG
 #include <stdio.h>
 #endif
 
@@ -35,7 +35,6 @@ uint16_t throttle_adc_buffer[10];
 struct {
 	uint16_t current;
 	uint16_t prev;
-	uint16_t ema;
 } throttle_value;
 
 uint8_t wiper_ARR = 0;
@@ -51,19 +50,18 @@ TIM_HandleTypeDef *_usr_wiper_pwm;
 UART_HandleTypeDef *_usr_uart;
 
 /**
- * This function sends the provided message and value over UART.
- * @param fmt - the format of the message (eg. "SOMEVALUE = %d\r\n")
- * @param value - the value to format into the message
+ * This function sends the key-value pair over UART for logging or debug.
+ * MAX MESSAGE LENGTH IS 128.
+ * @param key - variable/information title (eg. "SOMEVALUE")
+ * @param value - the number value information
  */
-static void _Debug_Msg(char *fmt, uint32_t value) {
-#ifdef UART_DEBUG_ENABLE
+#ifdef UART_DEBUG
+void Debug_Msg(char *key, uint32_t value) {
 	char msg[128];
-	uint16_t len = sprintf(msg, fmt, value);
+	uint16_t len = sprintf(msg, "%s = %d\r\n", key, value);
 	HAL_UART_Transmit(_usr_uart, (uint8_t*)msg, len, 100);
-#else
-	(void)fmt;
-#endif
 }
+#endif
 
 
 /**
@@ -74,10 +72,10 @@ static void _Debug_Msg(char *fmt, uint32_t value) {
  * @param fatal - if the program can continue after the error or not
  */
 void User_Error_Handler(USER_ERROR err, uint8_t fatal) {
-	#ifdef ERROR_REPORTING
-	_Debug_Msg("ERROR = %d ", err);
-	_Debug_Msg("; FATAL = %d\r\n", fatal);
-	#endif
+#ifdef UART_DEBUG
+	Debug_Msg("ERROR", err);
+	Debug_Msg("FATAL", fatal);
+#endif
 	if (fatal == SET) {
 		HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(LED2_Red_GPIO_Port, LED2_Red_Pin, GPIO_PIN_SET);
@@ -87,7 +85,9 @@ void User_Error_Handler(USER_ERROR err, uint8_t fatal) {
 			HAL_Delay(250);
 		}
 	} else {
+#ifdef DEBUG_LEDS
 		HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_SET);
+#endif
 	}
 }
 
@@ -113,18 +113,14 @@ uint16_t _Rate_Limit(uint16_t value) {
  */
 uint16_t _ADC_Moving_Average() {
 	uint32_t sum = 0;
-#ifdef POT_RAW_DEBUG
-	_Debug_Msg("POT_RAW = ", 0);
-#endif
 	for (uint8_t i = 0; i < 10; i++){
 		sum += throttle_adc_buffer[i];
-#ifdef POT_RAW_DEBUG
-		_Debug_Msg("%d  ", throttle_adc_buffer[i]);
+#ifdef UART_DEBUG
+		char key[32];
+		sprintf(key, "POT_ADC_%d", i);
+		Debug_Msg(key, throttle_adc_buffer[i]);
 #endif
 	}
-#ifdef POT_RAW_DEBUG
-	_Debug_Msg("\r\n", 0);
-#endif
 	return sum / 10;
 }
 
@@ -136,14 +132,9 @@ void _Pot_Filter() {
 	throttle_value.prev = throttle_value.current;
 	throttle_value.current = _ADC_Moving_Average();
 
-	#ifdef POT_FILTER_DEBUG
-	_Debug_Msg("ADC_AVG = %d", throttle_value.current);
-	#endif
-
-//	if (throttle_value.current > POT_ZERO) {
-//        throttle_value.ema = (POT_EMA * throttle_value.current) + ((1 - POT_EMA) * throttle_value.ema);
-//        throttle_value.current = throttle_value.ema;
-//	}
+#ifdef UART_DEBUG
+	Debug_Msg("POT_ADC_AVG", throttle_value.current);
+#endif
 
 	if ((throttle_value.current - throttle_value.prev) <= POT_STEP)
 		throttle_value.current = throttle_value.prev;
@@ -156,18 +147,18 @@ void _Pot_Filter() {
 		throttle_value.current = POT_VALUES[19];
 	}
 
-	#ifdef POT_FILTER_DEBUG
-	_Debug_Msg("   ADC_FLTR = %d\r\n", throttle_value.current);
-	#endif
+#ifdef UART_DEBUG
+	Debug_Msg("POT_ADC_FLTR", throttle_value.current);
+#endif
 }
 
 /**
  * Updates the drive state machine based on the current switch positions.
  */
 void _Update_Drive_State() {
-	#ifdef DRIVE_STATE_DEBUG
-	_Debug_Msg("STATE : PREV = %d", drive_state.current);
-	#endif
+#ifdef UART_DEBUG
+	Debug_Msg("PREV_STATE", drive_state.current);
+#endif
 	drive_state.prev = drive_state.current;
 	if (vcu_state.A.MC_OW == RESET) {
 		if (stw_state.A.DRIVE == RESET && stw_state.A.REVERSE == RESET) {
@@ -190,9 +181,9 @@ void _Update_Drive_State() {
 	} else {
 		drive_state.current = D_NEUTRAL;
 	}
-	#ifdef DRIVE_STATE_DEBUG
-	_Debug_Msg("; NOW = %d\r\n", drive_state.current);
-	#endif
+#ifdef UART_DEBUG
+	Debug_Msg("CURR_STATE", drive_state.current);
+#endif
 }
 
 /**
@@ -252,9 +243,9 @@ uint16_t _Calculate_MC_Ref() {
 		reference = 0;
 	}
 
-	#ifdef MC_REF_DEBUG
-	_Debug_Msg("MC_REF = %d\r\n", drive_state.current);
-	#endif
+#ifdef UART_DEBUG
+	Debug_Msg("MC_REF", drive_state.current);
+#endif
 
 	return _Rate_Limit(reference);
 }
@@ -380,7 +371,9 @@ void _Send_VCU_State_CAN() {
 		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
 		return;
 	}
+#ifdef DEBUG_LEDS
 	HAL_GPIO_TogglePin(LED4_Blue_GPIO_Port, LED4_Blue_Pin);
+#endif
 }
 
 /**
@@ -428,19 +421,31 @@ void _Wiper_Tick() {
 		wiper_state.running = SET;
 		wiper_state.step = 2;
 		break;
+#ifdef WIPER_SWEEP_DEBUG
+	case 2:
+		for (uint16_t i = 0; i < WIPER_TIM_ARR-20; i+=20){
+			if (HAL_GPIO_ReadPin(Wiper_switch_GPIO_Port, Wiper_switch_Pin) == GPIO_PIN_RESET) break;
+			_usr_wiper_pwm->Instance->CCR1 = i;
+#ifdef UART_DEBUG
+			Debug_Msg("WIPER_CCR", i);
+#endif
+			HAL_Delay(20);
+		}
+		wiper_state.step = 5;
+#else
 	case 2: // Wipe Right
-		_usr_wiper_pwm->Instance->CCR1 = WIPER_RIGHT; // Right
 		if (vcu_state.A.WIPER == RESET) {
 			wiper_state.step = 4;
 		} else {
+			_usr_wiper_pwm->Instance->CCR1 = WIPER_RIGHT;
 			wiper_state.step = 3;
 		}
 		break;
 	case 3: // Wipe Left
-		_usr_wiper_pwm->Instance->CCR1 = WIPER_LEFT; // Left
 		if (vcu_state.A.WIPER == RESET) {
 			wiper_state.step = 4;
 		} else {
+			_usr_wiper_pwm->Instance->CCR1 = WIPER_LEFT;
 			wiper_state.step = 2;
 		}
 		break;
@@ -448,6 +453,7 @@ void _Wiper_Tick() {
 		_usr_wiper_pwm->Instance->CCR1 = WIPER_CENTER;
 		wiper_state.step = 5;
 		break;
+#endif
 	case 5: // Turn off and go to standby
 		HAL_TIM_PWM_Stop(_usr_wiper_pwm, TIM_CHANNEL_1);
 		HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
@@ -457,9 +463,9 @@ void _Wiper_Tick() {
 	default:
 		break;
 	}
-#ifdef WIPER_DEBUG
-	_Debug_Msg("WIPER_RUN = %d", _wiper_state.running);
-	_Debug_Msg("   WIPER_STEP = %d\r\n", _wiper_state.step);
+#ifdef UART_DEBUG
+	Debug_Msg("WIPER_RUN", wiper_state.running);
+	Debug_Msg("WIPER_STEP", wiper_state.step);
 #endif
 }
 
@@ -494,7 +500,6 @@ void _Reset_Variables() {
 	}
 	throttle_value.current = POT_ZERO;
 	throttle_value.prev = POT_ZERO;
-	throttle_value.ema = POT_ZERO;
 	rate_limiter.current = 0;
 	rate_limiter.prev = 0;
 	wiper_state.running = RESET;
@@ -515,7 +520,9 @@ void User_Init(CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UAR
 	_Reset_Outputs();
 	_Init_CAN();
 
+#ifdef DEBUG_LEDS
 	HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_SET);
+#endif
 }
 
 /**
@@ -537,7 +544,12 @@ void User_Loop() {
 		_Send_MC_Command_CAN(_Calculate_MC_Ref());
 	}
 
-	if (wiper_ARR++ >= WIPER_PSC) {
+	if (wiper_ARR++ >= WIPER_PERIOD) {
 		_Wiper_Tick();
+		wiper_ARR = 0;
+
+#ifdef DEBUG_LEDS
+		HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_RESET);
+#endif
 	}
 }
