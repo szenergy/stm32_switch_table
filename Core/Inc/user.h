@@ -37,12 +37,14 @@
 // wiper_period * 50ms = time_between_wipes
 #define WIPER_PERIOD   (uint16_t)25     // 25 => 1.25s
 // wiper PWM timer configuration  (50Hz = 20ms = ((PSC+1)(ARR+1))/Clock)
-#define WIPER_TIM_PSC  (uint16_t)3
-#define WIPER_TIM_ARR  (uint16_t)39999
-// wiper positions in counts (servo start is 0.5ms, end is 2.5ms)
-#define WIPER_LEFT     (uint16_t)2000
+#define WIPER_TIM_PSC  (uint16_t)4
+#define WIPER_TIM_ARR  (uint16_t)40000
+// wiper positions in counts
+// using the current servo: H-SPEED HSX181
+// start is 0.5ms = 1000 counts, end is 2.8ms = 5500 counts
+#define WIPER_LEFT     (uint16_t)4600
 #define WIPER_RIGHT    (uint16_t)4000
-#define WIPER_CENTER   (uint16_t)3000
+#define WIPER_CENTER   (uint16_t)4100
 
 // debug options, un-comment to enable
 //#define DEBUG_LEDS            // side debug leds on/off
