@@ -36,6 +36,7 @@ struct {
 	uint16_t current;
 	uint16_t prev;
 } throttle_value;
+uint16_t torque_reference;
 
 uint8_t wiper_ARR = 0;
 struct WIPER_STATE wiper_state;
@@ -192,6 +193,9 @@ void _Update_Drive_State() {
  * @return - unsigned integer value
  */
 uint16_t _Calculate_MC_Ref() {
+	if (vcu_state.A.MC_OW == SET || vcu_state.A.AUTONOMOUS == SET)
+		return 0;
+
 	if (vcu_state.A.BRAKE != RESET)
 		return 0; // the brake pedal should inhibit acceleration
 
@@ -361,7 +365,7 @@ void _Send_VCU_State_CAN() {
 	data[0] = vcu_state.A.bits;
 	data[1] = vcu_state.B.bits;
 
-	int32_t throttle_buffer = (throttle_value.current * 100000) / 1023;
+	int32_t throttle_buffer = (torque_reference * 100000) / 1023;
 	data[2] = throttle_buffer >> 24;
 	data[3] = throttle_buffer >> 16;
 	data[4] = throttle_buffer >> 8;
@@ -376,11 +380,26 @@ void _Send_VCU_State_CAN() {
 #endif
 }
 
+void _Send_BMS_Query_CAN() {
+	CAN_TxHeaderTypeDef header;
+	uint8_t data[8];
+	uint32_t mailbox;
+
+	header.IDE = CAN_ID_EXT;
+	header.StdId = 0x0400FF80;
+	header.RTR = CAN_RTR_DATA;
+	header.DLC = 8;
+
+	if (HAL_CAN_AddTxMessage(_usr_can, &header, data, &mailbox) != HAL_OK) {
+		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
+		return;
+	}
+}
+
 /**
  * Sends the torque reference to the motor controller over CAN.
- * @param reference - the value to send
  */
-void _Send_MC_Command_CAN(uint16_t reference) {
+void _Send_MC_Command_CAN() {
 	CAN_TxHeaderTypeDef header;
 	uint8_t data[4];
 	uint32_t mailbox;
@@ -390,7 +409,7 @@ void _Send_MC_Command_CAN(uint16_t reference) {
 	header.RTR = CAN_RTR_DATA;
 	header.DLC = 4;
 
-	int32_t throttle_buffer = (reference * 100000) / 1023;
+	int32_t throttle_buffer = (torque_reference * 100000) / 1023;
 	if (stw_state.A.REVERSE)
 		throttle_buffer = throttle_buffer * -1;
 	data[0] = throttle_buffer >> 24;
@@ -537,16 +556,21 @@ void User_Loop() {
 
 	_Pot_Filter();
 
+	torque_reference = _Calculate_MC_Ref();
+
 	_Send_VCU_State_CAN();
 
 	if (vcu_state.A.MC_OW == RESET && vcu_state.A.AUTONOMOUS == RESET) {
 		_Update_Drive_State();
-		_Send_MC_Command_CAN(_Calculate_MC_Ref());
+		_Send_MC_Command_CAN(torque_reference);
 	}
+
 
 	if (wiper_ARR++ >= WIPER_PERIOD) {
 		_Wiper_Tick();
 		wiper_ARR = 0;
+
+		_Send_BMS_Query_CAN();
 
 #ifdef DEBUG_LEDS
 		HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_RESET);
