@@ -382,15 +382,47 @@ void _Send_VCU_State_CAN() {
 
 void _Send_BMS_Query_CAN() {
 	CAN_TxHeaderTypeDef header;
-	uint8_t data[8];
+	uint8_t data[8] = {0,0,0,0,0,0,0,0};
 	uint32_t mailbox;
 
 	header.IDE = CAN_ID_EXT;
-	header.StdId = 0x0400FF80;
+	header.ExtId = 0x0400FF80;
 	header.RTR = CAN_RTR_DATA;
 	header.DLC = 8;
 
 	if (HAL_CAN_AddTxMessage(_usr_can, &header, data, &mailbox) != HAL_OK) {
+		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
+		return;
+	}
+}
+
+void _Send_SMAG_Init_CAN() {
+	CAN_TxHeaderTypeDef header1;
+	uint8_t data1[8] = {0x2B, 0, 0x62, 0, 0x32, 0, 0, 0};
+	uint32_t mailbox1;
+
+	header1.IDE = CAN_ID_STD;
+	header1.StdId = 0x605;
+	header1.RTR = CAN_RTR_DATA;
+	header1.DLC = 8;
+
+	if (HAL_CAN_AddTxMessage(_usr_can, &header1, data1, &mailbox1) != HAL_OK) {
+		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
+		return;
+	}
+
+	HAL_Delay(500);
+
+	CAN_TxHeaderTypeDef header2;
+	uint8_t data2[8] = {0x1, 0x5, 0, 0, 0, 0, 0, 0};
+	uint32_t mailbox2;
+
+	header2.IDE = CAN_ID_STD;
+	header2.StdId = 0x0;
+	header2.RTR = CAN_RTR_DATA;
+	header2.DLC = 8;
+
+	if (HAL_CAN_AddTxMessage(_usr_can, &header2, data2, &mailbox2) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
 		return;
 	}
@@ -538,6 +570,9 @@ void User_Init(CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UAR
 
 	_Reset_Outputs();
 	_Init_CAN();
+
+	HAL_Delay(500);
+	_Send_SMAG_Init_CAN();
 
 #ifdef DEBUG_LEDS
 	HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_SET);

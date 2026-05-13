@@ -117,6 +117,9 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
+  // Initialize the `user.c`
+  User_Init(&hcan2, &htim3, &huart1);
+
   // Start the "wake-up" timer,
   // this will wake the CPU every 50ms
   HAL_TIM_Base_Start_IT(&htim14);
@@ -125,9 +128,6 @@ int main(void)
   // and its trigger timer that fires every 5ms
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)throttle_adc_buffer, 10);
   HAL_TIM_Base_Start(&htim2);
-
-  // Initialize the `user.c`
-  User_Init(&hcan2, &htim3, &huart1);
 
   /* USER CODE END 2 */
 
