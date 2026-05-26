@@ -365,7 +365,12 @@ void _Send_VCU_State_CAN() {
 	data[0] = vcu_state.A.bits;
 	data[1] = vcu_state.B.bits;
 
-	int32_t throttle_buffer = (torque_reference * 100000) / 1023;
+	int32_t throttle_buffer;
+	if (torque_reference != 0) {
+		throttle_buffer = (torque_reference * 100000) / 1023;
+	} else {
+		throttle_buffer = (throttle_value.current * 100000) / 1023;
+	}
 	data[2] = throttle_buffer >> 24;
 	data[3] = throttle_buffer >> 16;
 	data[4] = throttle_buffer >> 8;
