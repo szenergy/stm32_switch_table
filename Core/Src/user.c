@@ -8,6 +8,7 @@
  */
 
 #include "user.h"
+#include "automatic_strategy.h"
 #ifdef UART_DEBUG
 #include <stdio.h>
 #endif
@@ -18,17 +19,35 @@ struct {
 } vcu_state;
 
 struct {
-	STW_STATE_A A;
-	STW_STATE_B B;
-	STW_STATE_C C;
-	STW_STATE_D D;
+	STW_STATE_BUTTONS A;
+	uint8_t ROT1;
+	uint8_t ROT2;
+	uint8_t ROT3;
 } stw_state;
 
-double wheel_rpm;
+struct {
+	float wheel_rpm;
+	float speed;
+	float distance;
+} vehicle_state;
 
 struct {
-	DRIVE_STATE prev;
-	DRIVE_STATE current;
+	float time;
+	float prev_time;
+	uint8_t number;
+} lap;
+
+struct {
+	DW_automatic_strategy_T internal;
+	float torque_gain;
+	float torque_base;
+	float torque_ref;
+} auto_strat_state;
+
+struct {
+	DRIVE_MODE_ENUM mode;
+	uint8_t setting;
+	float torque_ref;
 } drive_state;
 
 uint16_t throttle_adc_buffer[10];
@@ -36,7 +55,6 @@ struct {
 	uint16_t current;
 	uint16_t prev;
 } throttle_value;
-uint16_t torque_reference;
 
 uint8_t wiper_ARR = 0;
 struct WIPER_STATE wiper_state;
@@ -153,38 +171,16 @@ void _Pot_Filter() {
 #endif
 }
 
-/**
- * Updates the drive state machine based on the current switch positions.
- */
-void _Update_Drive_State() {
-#ifdef UART_DEBUG
-	Debug_Msg("PREV_STATE", drive_state.current);
-#endif
-	drive_state.prev = drive_state.current;
-	if (vcu_state.A.MC_OW == RESET) {
-		if (stw_state.A.DRIVE == RESET && stw_state.A.REVERSE == RESET) {
-			drive_state.current = D_NEUTRAL;
-		} else if (throttle_value.current > 0) {
-			if (stw_state.A.DRIVE == SET) {
-				drive_state.current = D_DRIVE_PEDAL;
-			} else if (stw_state.A.REVERSE == SET) {
-				drive_state.current = D_REVERSE_PEDAL;
-			}
-		} else if (stw_state.A.ACC == SET) {
-			if (stw_state.A.DRIVE == SET) {
-				drive_state.current = D_AUTO_ACC;
-			} else if (stw_state.A.REVERSE == SET) {
-				drive_state.current = D_AUTO_DEC;
-			}
-		} else {
-			drive_state.current = D_NEUTRAL;
-		}
-	} else {
-		drive_state.current = D_NEUTRAL;
+void _Update_Vehicle_State() {
+	vehicle_state.speed = vehicle_state.wheel_rpm * SPEED_MULT_FACTOR;
+	vehicle_state.distance += vehicle_state.speed / 72;
+	lap.time += (float)0.05;
+	if (stw_state.A.LAP == SET && (lap.time > 5 || lap.number == 0) ) {
+		vehicle_state.distance = 0;
+		lap.number++;
+		lap.prev_time = lap.time;
+		lap.time = 0;
 	}
-#ifdef UART_DEBUG
-	Debug_Msg("CURR_STATE", drive_state.current);
-#endif
 }
 
 /**
@@ -192,66 +188,101 @@ void _Update_Drive_State() {
  * Uses the lookup tables from `user.h` in certain switch positions.
  * @return - unsigned integer value
  */
-uint16_t _Calculate_MC_Ref() {
-	if (vcu_state.A.MC_OW == SET || vcu_state.A.AUTONOMOUS == SET)
-		return 0;
+void _Calculate_MC_Ref() {
+	drive_state.torque_ref = 0;
+	drive_state.mode = DM_NEUTRAL;
+	drive_state.setting = 0;
 
-	if (vcu_state.A.BRAKE != RESET)
-		return 0; // the brake pedal should inhibit acceleration
+	if (vcu_state.A.MC_OW == SET || vcu_state.A.AUTONOMOUS == SET || vcu_state.A.BRAKE != RESET) {
+		return;
+	}
 
-	uint16_t reference = throttle_value.current;
-
-	if (drive_state.current != D_NEUTRAL) {
-		if (drive_state.current == D_AUTO_ACC || drive_state.current == D_AUTO_DEC) {
-			uint16_t speed = wheel_rpm * SPEED_MULT_FACTOR;
-			switch (stw_state.D.bits) {
-				case 0:
-				case 1:
-				case 8:
-					reference = 1023;
-					break;
-				case 2:
-					if (wheel_rpm >= 116)
-						reference = 1023 * LUT_Z22[speed];
-					else
-						reference = 1023;
-					break;
-				case 4:
-					if (wheel_rpm >= 221)
-						reference = 1023 * LUT_Z24[speed];
-					else
-						reference = 1023;
-					break;
-				case 16:
-					if (speed >= 5)
-						reference = 409;
-					else
-						reference = 1023;
-					break;
-				case 32:
-					reference = 818;
-					break;
-				case 64:
-					reference = 920;
-					break;
-				default:
-					reference = 0;
-					break;
-			}
+	if (stw_state.A.ACC == SET) {
+		switch (stw_state.ROT3) {
+			case ROT_1:
+				drive_state.mode = DM_MANUAL;
+				switch (stw_state.ROT1) {
+					case ROT_1:
+						drive_state.torque_ref = 0.8;
+						drive_state.setting = 1;
+						break;
+					case ROT_2:
+						drive_state.torque_ref = 0.9;
+						drive_state.setting = 2;
+						break;
+					case ROT_3:
+						drive_state.torque_ref = 1;
+						drive_state.setting = 3;
+						break;
+				}
+				break;
+			case ROT_2:
+				drive_state.mode = DM_MANUAL_STRATEGY;
+				switch (stw_state.ROT1) {
+					case ROT_1:
+						drive_state.setting = 1;
+						if (vehicle_state.wheel_rpm < 116) {
+							drive_state.torque_ref = 1;
+						} else {
+							drive_state.torque_ref = LUT_Z22[(uint16_t)vehicle_state.speed];
+						}
+						break;
+					case ROT_2:
+						drive_state.setting = 2;
+						if (vehicle_state.wheel_rpm < 221) {
+							drive_state.torque_ref = 1;
+						} else {
+							drive_state.torque_ref = LUT_Z24[(uint16_t)vehicle_state.speed];
+						}
+						break;
+					case ROT_3:
+						drive_state.setting = 3;
+						if (vehicle_state.wheel_rpm < 224) {
+							drive_state.torque_ref = 1;
+						} else {
+							drive_state.torque_ref = (float)0.332217618;
+						}
+						break;
+				}
+				break;
+			case ROT_3:
+				drive_state.mode = DM_AUTOMATIC_STRATEGY;
+				switch (stw_state.ROT3) {
+					case ROT_1:
+						drive_state.setting = 1;
+						automatic_strategy(
+								vehicle_state.speed,
+								vehicle_state.distance,
+								lap.time,
+								vehicle_state.wheel_rpm,
+								lap.prev_time,
+								&auto_strat_state.torque_ref,
+								&auto_strat_state.torque_gain,
+								&auto_strat_state.torque_base,
+								&auto_strat_state.internal
+						);
+						drive_state.torque_ref = auto_strat_state.torque_ref;
+				}
+				break;
 		}
-	} else if (drive_state.prev != D_NEUTRAL && drive_state.current == D_NEUTRAL) {
+	}
+
+	if (throttle_value.current > 0) {
+		drive_state.mode = DM_MANUAL;
+		drive_state.setting = 0;
+		drive_state.torque_ref = throttle_value.current / (float)1023;
+	}
+
+	if (drive_state.torque_ref != 0) {
+		drive_state.torque_ref = _Rate_Limit(drive_state.torque_ref);
+	} else {
 		rate_limiter.current = 0;
 		rate_limiter.prev = 0;
-		reference = 0;
-	} else {
-		reference = 0;
 	}
 
 #ifdef UART_DEBUG
-	Debug_Msg("MC_REF", drive_state.current);
+	Debug_Msg("MC_REF", drive_state.torque_ref);
 #endif
-
-	return _Rate_Limit(reference);
 }
 
 /**
@@ -334,15 +365,15 @@ void _Receive_CAN() {
 
 	if (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO0, &header, data) == HAL_OK) {
 		stw_state.A.bits = data[0];
-		stw_state.B.bits = data[1];
-		stw_state.C.bits = data[2];
-		stw_state.D.bits = data[3];
+		stw_state.ROT1 = data[1];
+		stw_state.ROT2 = data[2];
+		stw_state.ROT3 = data[3];
 	} else {
 		User_Error_Handler(UERR_CAN_RECEIVE, 0);
 	}
 
 	if (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO1, &header, data) == HAL_OK) {
-		wheel_rpm = ((uint16_t)data[0] << 8) | data[1];
+		vehicle_state.wheel_rpm = ((uint16_t)data[0] << 8) | data[1];
 	} else {
 		User_Error_Handler(UERR_CAN_RECEIVE, 0);
 	}
@@ -366,8 +397,8 @@ void _Send_VCU_State_CAN() {
 	data[1] = vcu_state.B.bits;
 
 	int32_t throttle_buffer;
-	if (torque_reference != 0) {
-		throttle_buffer = (torque_reference * 100000) / 1023;
+	if (drive_state.torque_ref != 0) {
+		throttle_buffer = drive_state.torque_ref * 100000;
 	} else {
 		throttle_buffer = (throttle_value.current * 100000) / 1023;
 	}
@@ -383,6 +414,52 @@ void _Send_VCU_State_CAN() {
 #ifdef DEBUG_LEDS
 	HAL_GPIO_TogglePin(LED4_Blue_GPIO_Port, LED4_Blue_Pin);
 #endif
+}
+
+void _Send_Auto_Strat_Debug_CAN() {
+	CAN_TxHeaderTypeDef header;
+	uint8_t data[6];
+	uint32_t mailbox;
+
+	header.IDE = CAN_ID_STD;
+	header.StdId = 0x150;
+	header.RTR = CAN_RTR_DATA;
+	header.DLC = 6;
+
+	data[0] = lap.number;
+	uint32_t lap_time_buffer = lap.time * 100;
+	data[1] = lap_time_buffer >> 8;
+	data[2] = lap_time_buffer;
+	uint32_t distance_buffer = vehicle_state.distance * 10;
+	data[3] = distance_buffer >> 8;
+	data[4] = distance_buffer;
+	data[5] = (drive_state.mode << 4) | drive_state.setting;
+
+	if (HAL_CAN_AddTxMessage(_usr_can, &header, data, &mailbox) != HAL_OK) {
+		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
+		return;
+	}
+
+	CAN_TxHeaderTypeDef header2;
+	uint8_t data2[6];
+	uint32_t mailbox2;
+
+	header2.IDE = CAN_ID_STD;
+	header2.StdId = 0x151;
+	header2.RTR = CAN_RTR_DATA;
+	header2.DLC = 4;
+
+	uint32_t torque_gain_buffer = auto_strat_state.torque_gain * 100;
+	data2[0] = torque_gain_buffer >> 8;
+	data2[1] = torque_gain_buffer;
+	uint32_t torque_base_buffer = auto_strat_state.torque_base * 100;
+	data2[2] = torque_base_buffer >> 8;
+	data2[3] = torque_base_buffer;
+
+	if (HAL_CAN_AddTxMessage(_usr_can, &header2, data2, &mailbox2) != HAL_OK) {
+		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
+		return;
+	}
 }
 
 void _Send_BMS_Query_CAN() {
@@ -446,7 +523,7 @@ void _Send_MC_Command_CAN() {
 	header.RTR = CAN_RTR_DATA;
 	header.DLC = 4;
 
-	int32_t throttle_buffer = (torque_reference * 100000) / 1023;
+	int32_t throttle_buffer = drive_state.torque_ref * 100000;
 	if (stw_state.A.REVERSE)
 		throttle_buffer = throttle_buffer * -1;
 	data[0] = throttle_buffer >> 24;
@@ -542,15 +619,22 @@ void _Reset_Outputs() {
  * Resets the user defined variables to their defaults.
  */
 void _Reset_Variables() {
-	vcu_state.A.bits = 0b00000000;
-	vcu_state.B.bits = 0b00000000;
-	stw_state.A.bits = 0b00000000;
-	stw_state.B.bits = 0b00000000;
-	stw_state.C.bits = 0b00000000;
-	stw_state.D.bits = 0b00000000;
-	wheel_rpm = 0;
-	drive_state.current = D_NEUTRAL;
-	drive_state.prev = D_NEUTRAL;
+	vcu_state.A.bits = 0;
+	vcu_state.B.bits = 0;
+	stw_state.A.bits = 0;
+	stw_state.ROT1 = 0;
+	stw_state.ROT2 = 0;
+	stw_state.ROT3 = 0;
+	vehicle_state.distance = 0;
+	vehicle_state.speed = 0;
+	vehicle_state.wheel_rpm = 0;
+	drive_state.mode = DM_NEUTRAL;
+	drive_state.setting = 0;
+	drive_state.torque_ref = 0;
+	auto_strat_state.internal.DiscreteTimeIntegrator_DSTATE = 0;
+	auto_strat_state.torque_base = 0;
+	auto_strat_state.torque_gain = 0;
+	auto_strat_state.torque_ref = 0;
 	for (uint8_t i = 0; i < 10; i++) {
 		throttle_adc_buffer[i] = 0;
 	}
@@ -596,15 +680,17 @@ void User_Loop() {
 
 	_Pot_Filter();
 
-	torque_reference = _Calculate_MC_Ref();
+	_Update_Vehicle_State();
+
+	_Calculate_MC_Ref();
 
 	_Send_VCU_State_CAN();
 
 	if (vcu_state.A.MC_OW == RESET && vcu_state.A.AUTONOMOUS == RESET) {
-		_Update_Drive_State();
-		_Send_MC_Command_CAN(torque_reference);
+		_Send_MC_Command_CAN(drive_state.torque_ref);
 	}
 
+	_Send_Auto_Strat_Debug_CAN();
 
 	if (wiper_ARR++ >= WIPER_PERIOD) {
 		_Wiper_Tick();
