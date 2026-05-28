@@ -3,13 +3,13 @@
  * course requirements at degree granting institutions only.  Not for
  * government, commercial, or other organizational use.
  *
- * File: Automatic_private.h
+ * File: auto_strat_C_generate_private.h
  *
- * Code generated for Simulink model 'Automatic'.
+ * Code generated for Simulink model 'auto_strat_C_generate'.
  *
- * Model version                  : 1.11
+ * Model version                  : 1.17
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Thu May 28 13:51:36 2026
+ * C/C++ source code generated on : Thu May 28 16:07:52 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -17,18 +17,18 @@
  * Validation result: Not run
  */
 
-#ifndef Automatic_private_h_
-#define Automatic_private_h_
+#ifndef auto_strat_C_generate_private_h_
+#define auto_strat_C_generate_private_h_
 #include "rtwtypes.h"
-#include "Automatic_types.h"
-#include "Automatic.h"
+#include "auto_strat_C_generate_types.h"
+#include "auto_strat_C_generate.h"
 
 extern real32_T look1_iflf_linlcpw(real32_T u0, const real32_T bp0[], const
   real32_T table[], uint32_T maxIndex);
 extern real32_T look1_iflf_binlxpw(real32_T u0, const real32_T bp0[], const
   real32_T table[], uint32_T maxIndex);
 
-#endif                                 /* Automatic_private_h_ */
+#endif                                 /* auto_strat_C_generate_private_h_ */
 
 /*
  * File trailer for generated code.

@@ -3,7 +3,7 @@
  * course requirements at degree granting institutions only.  Not for
  * government, commercial, or other organizational use.
  *
- * File: automatic_strategy.h
+ * File: switching_automatic_strategy.h
  *
  * Code generated for Simulink model 'auto_strat_C_generate'.
  *
@@ -17,28 +17,20 @@
  * Validation result: Not run
  */
 
-#ifndef automatic_strategy_h_
-#define automatic_strategy_h_
+#ifndef switching_automatic_strategy_h_
+#define switching_automatic_strategy_h_
 #ifndef auto_strat_C_generate_COMMON_INCLUDES_
 #define auto_strat_C_generate_COMMON_INCLUDES_
 #include "rtwtypes.h"
 #include "math.h"
 #endif                              /* auto_strat_C_generate_COMMON_INCLUDES_ */
 
-/* Block states (default storage) for system '<Root>/Automatic Strategy' */
-typedef struct {
-  real32_T DelayInput1_DSTATE;         /* '<S3>/Delay Input1' */
-  real32_T DiscreteTimeIntegrator_DSTATE;/* '<S1>/Discrete-Time Integrator' */
-  int8_T DiscreteTimeIntegrator_PrevRese;/* '<S1>/Discrete-Time Integrator' */
-} DW_automatic_strategy_T;
+extern void switching_automatic_strategy(real32_T rtu_SpeedInms, real32_T
+  rtu_DistanceInm, real32_T rtu_Laptime, real32_T rtu_RPM, real32_T
+  rtu_Totaldiff, real32_T *rty_ThrottleOut, real32_T *rty_TorqueGain, real32_T
+  *rty_TorqueRef);
 
-extern void automatic_strategy_Init(DW_automatic_strategy_T *localDW);
-extern void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
-  real32_T rtu_Laptime, real32_T rtu_RPM, real32_T rtu_Totaldiff, real32_T
-  *rty_ThrottleOut, real32_T *rty_TorqueGain, real32_T *rty_TorqueRef,
-  DW_automatic_strategy_T *localDW);
-
-#endif                                 /* automatic_strategy_h_ */
+#endif                                 /* switching_automatic_strategy_h_ */
 
 /*
  * File trailer for generated code.

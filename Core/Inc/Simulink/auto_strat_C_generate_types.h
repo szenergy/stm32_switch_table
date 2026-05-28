@@ -3,13 +3,13 @@
  * course requirements at degree granting institutions only.  Not for
  * government, commercial, or other organizational use.
  *
- * File: Automatic_types.h
+ * File: auto_strat_C_generate_types.h
  *
- * Code generated for Simulink model 'Automatic'.
+ * Code generated for Simulink model 'auto_strat_C_generate'.
  *
- * Model version                  : 1.11
+ * Model version                  : 1.17
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Thu May 28 13:51:36 2026
+ * C/C++ source code generated on : Thu May 28 16:07:52 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -17,13 +17,13 @@
  * Validation result: Not run
  */
 
-#ifndef Automatic_types_h_
-#define Automatic_types_h_
+#ifndef auto_strat_C_generate_types_h_
+#define auto_strat_C_generate_types_h_
 
 /* Forward declaration for rtModel */
-typedef struct tag_RTM_Automatic_T RT_MODEL_Automatic_T;
+typedef struct tag_RTM_auto_strat_C_generate_T RT_MODEL_auto_strat_C_generat_T;
 
-#endif                                 /* Automatic_types_h_ */
+#endif                                 /* auto_strat_C_generate_types_h_ */
 
 /*
  * File trailer for generated code.

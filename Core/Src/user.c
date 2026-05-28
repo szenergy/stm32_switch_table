@@ -9,6 +9,7 @@
 
 #include "user.h"
 #include "automatic_strategy.h"
+#include "switching_automatic_strategy.h"
 #ifdef UART_DEBUG
 #include <stdio.h>
 #endif
@@ -32,8 +33,9 @@ struct {
 } vehicle_state;
 
 struct {
-	float time;      // seconds
-	float prev_time; // seconds
+	float time;       // seconds
+	float prev_time;  // seconds
+	float total_diff; // seconds
 	uint8_t number;
 } lap;
 
@@ -198,12 +200,13 @@ void _Update_Vehicle_State() {
 	if (lap.number != 0) {
 		lap.time += (float)0.05;
 	} else {
-		lap.time = 107;
+		lap.time = OPTIMAL_LAP;
 	}
 	if (stw_state.A.LAP == SET && (lap.time > 5 || lap.number == 0)) {
 		vehicle_state.distance = 0;
 		lap.number++;
 		lap.prev_time = lap.time;
+		lap.total_diff +=  lap.time - OPTIMAL_LAP;
 		lap.time = 0;
 	}
 //	if (stw_state.A.FUNCTION1 == SET) {
@@ -283,11 +286,24 @@ void _Calculate_MC_Ref() {
 								vehicle_state.distance,
 								lap.time,
 								vehicle_state.wheel_rpm,
-								lap.prev_time,
+								lap.total_diff,
 								&auto_strat_state.torque_ref,
 								&auto_strat_state.torque_gain,
 								&auto_strat_state.torque_base,
 								&auto_strat_state.internal
+						);
+						drive_state.torque_ref = auto_strat_state.torque_ref;
+					case ROT_2:
+						drive_state.setting = 2;
+						switching_automatic_strategy(
+								vehicle_state.speed / 3.6F,
+								vehicle_state.distance,
+								lap.time,
+								vehicle_state.wheel_rpm,
+								lap.total_diff,
+								&auto_strat_state.torque_ref,
+								&auto_strat_state.torque_gain,
+								&auto_strat_state.torque_base
 						);
 						drive_state.torque_ref = auto_strat_state.torque_ref;
 				}
@@ -689,7 +705,8 @@ void _Reset_Variables() {
 	auto_strat_state.torque_gain = 0;
 	auto_strat_state.torque_ref = 0;
 	lap.number = 0;
-	lap.prev_time = 107;
+	lap.prev_time = OPTIMAL_LAP;
+	lap.total_diff = 0;
 	lap.time = 0;
 	for (uint8_t i = 0; i < 10; i++) {
 		throttle_adc_buffer[i] = 0;
