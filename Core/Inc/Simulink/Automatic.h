@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'Automatic'.
  *
- * Model version                  : 1.6
+ * Model version                  : 1.11
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Wed May 27 11:02:37 2026
+ * C/C++ source code generated on : Thu May 28 13:51:36 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -39,22 +39,11 @@
 
 /* Block states (default storage) for system '<Root>' */
 typedef struct {
-  DW_automatic_strategy_T AutomaticStrategySubsystem;
-                                     /* '<Root>/Automatic Strategy Subsystem' */
+  DW_automatic_strategy_T AutomaticStrategy;/* '<Root>/Automatic Strategy' */
 } DW_Automatic_T;
 
 /* Constant parameters (default storage) */
 typedef struct {
-  /* Computed Parameter: uDLookupTable_tableData
-   * Referenced by: '<S1>/1-D Lookup Table'
-   */
-  real32_T uDLookupTable_tableData[50];
-
-  /* Computed Parameter: uDLookupTable_bp01Data
-   * Referenced by: '<S1>/1-D Lookup Table'
-   */
-  real32_T uDLookupTable_bp01Data[50];
-
   /* Computed Parameter: nDLookupTable8_tableData
    * Referenced by: '<S1>/n-D Lookup Table8'
    */
@@ -64,6 +53,16 @@ typedef struct {
    * Referenced by: '<S1>/n-D Lookup Table8'
    */
   real32_T nDLookupTable8_bp01Data[1071];
+
+  /* Computed Parameter: uDLookupTable_tableData
+   * Referenced by: '<S1>/1-D Lookup Table'
+   */
+  real32_T uDLookupTable_tableData[50];
+
+  /* Computed Parameter: uDLookupTable_bp01Data
+   * Referenced by: '<S1>/1-D Lookup Table'
+   */
+  real32_T uDLookupTable_bp01Data[50];
 
   /* Computed Parameter: nDLookupTable4_tableData
    * Referenced by: '<S1>/n-D Lookup Table4'
@@ -101,7 +100,7 @@ typedef struct {
   real32_T DistanceInm;                /* '<Root>/Distance In (m)' */
   real32_T Laptime;                    /* '<Root>/Lap time' */
   real32_T RPM;                        /* '<Root>/RPM' */
-  real32_T Previouslaptime;            /* '<Root>/Previous lap time' */
+  real32_T Previoslaptime;             /* '<Root>/Previos lap time' */
 } ExtU_Automatic_T;
 
 /* External outputs (root outports fed by signals with default storage) */
@@ -148,13 +147,14 @@ extern RT_MODEL_Automatic_T *const Automatic_M;
  * MATLAB hilite_system command to trace the generated code back
  * to the parent model.  For example,
  *
- * hilite_system('test_model/Automatic Strategy Subsystem')    - opens subsystem test_model/Automatic Strategy Subsystem
- * hilite_system('test_model/Automatic Strategy Subsystem/Kp') - opens and selects block Kp
+ * hilite_system('test_model/Automatic Strategy')    - opens subsystem test_model/Automatic Strategy
+ * hilite_system('test_model/Automatic Strategy/Kp') - opens and selects block Kp
  *
  * Here is the system hierarchy for this model
  *
  * '<Root>' : 'test_model'
- * '<S1>'   : 'test_model/Automatic Strategy Subsystem'
+ * '<S1>'   : 'test_model/Automatic Strategy'
+ * '<S2>'   : 'test_model/Automatic Strategy/Detect Change'
  */
 #endif                                 /* Automatic_h_ */
 

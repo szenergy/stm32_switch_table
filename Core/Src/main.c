@@ -135,23 +135,17 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  // Execute the tasks once, then go to sleep until the TIM14 triggers again
+	  if (wake_up_flag == SET) {
 #ifdef SLEEP_DEBUG_PIN
 	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_SET);
 #endif
-#ifdef UART_DEBUG
-	Debug_Msg("SLEEP", 0);
-#endif
-	  // Execute the tasks once, then go to sleep until the TIM14 triggers again
-	  if (wake_up_flag == SET) {
 		User_Loop();
 		wake_up_flag = RESET;
-	  }
-#ifdef UART_DEBUG
-	Debug_Msg("SLEEP", 1);
-#endif
 #ifdef SLEEP_DEBUG_PIN
 	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_RESET);
 #endif
+	  }
 	HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
     /* USER CODE END WHILE */
 

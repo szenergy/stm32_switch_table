@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'Automatic'.
  *
- * Model version                  : 1.6
+ * Model version                  : 1.11
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Wed May 27 11:02:37 2026
+ * C/C++ source code generated on : Thu May 28 13:51:36 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M

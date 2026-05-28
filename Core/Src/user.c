@@ -26,14 +26,14 @@ struct {
 } stw_state;
 
 struct {
-	float wheel_rpm;
-	float speed;
-	float distance;
+	float wheel_rpm; // rotations per minute
+	float speed;     // kilometers per hour
+	float distance;  // meters
 } vehicle_state;
 
 struct {
-	float time;
-	float prev_time;
+	float time;      // seconds
+	float prev_time; // seconds
 	uint8_t number;
 } lap;
 
@@ -60,13 +60,33 @@ uint8_t wiper_ARR = 0;
 struct WIPER_STATE wiper_state;
 
 struct {
-	uint16_t current;
-	uint16_t prev;
+	float current;
+	float prev;
 } rate_limiter;
 
 CAN_HandleTypeDef *_usr_can;
 TIM_HandleTypeDef *_usr_wiper_pwm;
 UART_HandleTypeDef *_usr_uart;
+
+PID_STATE _speed_hold_pid;
+
+float _PID_Step(PID_STATE *pid, float error) {
+    float P = pid->Kp * error;
+    pid->integral += error * pid->dt;
+    float I = pid->Ki * pid->integral;
+    float derivative = (error - pid->prev_error) / pid->dt;
+    float D = pid->Kd * derivative;
+    float output = P + I + D;
+    if (output > pid->out_max) {
+        output = pid->out_max;
+        pid->integral -= error * pid->dt;
+    } else if (output < pid->out_min) {
+        output = pid->out_min;
+        pid->integral -= error * pid->dt;
+    }
+    pid->prev_error = error;
+    return output;
+}
 
 /**
  * This function sends the key-value pair over UART for logging or debug.
@@ -116,13 +136,14 @@ void User_Error_Handler(USER_ERROR err, uint8_t fatal) {
  * @param value - desired value
  * @return - rate limited value
  */
-uint16_t _Rate_Limit(uint16_t value) {
+float _Rate_Limit(float value) {
 	rate_limiter.prev = rate_limiter.current;
 	rate_limiter.current = value;
-    if(2000 + rate_limiter.current - rate_limiter.prev > 2000 + RATE_LIMIT_UP)
-        rate_limiter.current = rate_limiter.prev + RATE_LIMIT_UP;
-    else if(2000 + rate_limiter.current - rate_limiter.prev < 2000 - RATE_LIMIT_DOWN)
-        rate_limiter.current = rate_limiter.prev - RATE_LIMIT_DOWN;
+	if (rate_limiter.prev + RATE_LIMIT_UP < rate_limiter.current) {
+		rate_limiter.current = rate_limiter.prev + RATE_LIMIT_UP;
+	} else if (rate_limiter.prev - RATE_LIMIT_DOWN > rate_limiter.current) {
+		rate_limiter.current = rate_limiter.prev - RATE_LIMIT_DOWN;
+	}
     return rate_limiter.current;
 }
 
@@ -174,13 +195,20 @@ void _Pot_Filter() {
 void _Update_Vehicle_State() {
 	vehicle_state.speed = vehicle_state.wheel_rpm * SPEED_MULT_FACTOR;
 	vehicle_state.distance += vehicle_state.speed / 72;
-	lap.time += (float)0.05;
-	if (stw_state.A.LAP == SET && (lap.time > 5 || lap.number == 0) ) {
+	if (lap.number != 0) {
+		lap.time += (float)0.05;
+	} else {
+		lap.time = 107;
+	}
+	if (stw_state.A.LAP == SET && (lap.time > 5 || lap.number == 0)) {
 		vehicle_state.distance = 0;
 		lap.number++;
 		lap.prev_time = lap.time;
 		lap.time = 0;
 	}
+//	if (stw_state.A.FUNCTION1 == SET) {
+//		_Reset_Variables();
+//	}
 }
 
 /**
@@ -193,7 +221,7 @@ void _Calculate_MC_Ref() {
 	drive_state.mode = DM_NEUTRAL;
 	drive_state.setting = 0;
 
-	if (vcu_state.A.MC_OW == SET || vcu_state.A.AUTONOMOUS == SET || vcu_state.A.BRAKE != RESET) {
+	if (vcu_state.A.MC_OW == SET || vcu_state.A.AUTONOMOUS == SET || vcu_state.A.BRAKE != RESET || (stw_state.A.REVERSE != SET && stw_state.A.DRIVE != SET)) {
 		return;
 	}
 
@@ -235,7 +263,7 @@ void _Calculate_MC_Ref() {
 							drive_state.torque_ref = LUT_Z24[(uint16_t)vehicle_state.speed];
 						}
 						break;
-					case ROT_3:
+					case ROT_3: // AUMOVIO track strategy
 						drive_state.setting = 3;
 						if (vehicle_state.wheel_rpm < 224) {
 							drive_state.torque_ref = 1;
@@ -247,11 +275,11 @@ void _Calculate_MC_Ref() {
 				break;
 			case ROT_3:
 				drive_state.mode = DM_AUTOMATIC_STRATEGY;
-				switch (stw_state.ROT3) {
+				switch (stw_state.ROT1) {
 					case ROT_1:
 						drive_state.setting = 1;
 						automatic_strategy(
-								vehicle_state.speed,
+								vehicle_state.speed / 3.6F,
 								vehicle_state.distance,
 								lap.time,
 								vehicle_state.wheel_rpm,
@@ -263,6 +291,11 @@ void _Calculate_MC_Ref() {
 						);
 						drive_state.torque_ref = auto_strat_state.torque_ref;
 				}
+				break;
+			case ROT_4:
+				drive_state.mode = DM_SPEED_HOLD;
+				uint8_t target_speed = SPEED_ROT_MAP[stw_state.ROT1];
+				drive_state.torque_ref = _PID_Step(&_speed_hold_pid, target_speed - vehicle_state.speed);
 				break;
 		}
 	}
@@ -279,6 +312,7 @@ void _Calculate_MC_Ref() {
 		rate_limiter.current = 0;
 		rate_limiter.prev = 0;
 	}
+
 
 #ifdef UART_DEBUG
 	Debug_Msg("MC_REF", drive_state.torque_ref);
@@ -373,7 +407,7 @@ void _Receive_CAN() {
 	}
 
 	if (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO1, &header, data) == HAL_OK) {
-		vehicle_state.wheel_rpm = ((uint16_t)data[0] << 8) | data[1];
+		vehicle_state.wheel_rpm = (((uint16_t)data[0] << 8) | data[1]) / 100;
 	} else {
 		User_Error_Handler(UERR_CAN_RECEIVE, 0);
 	}
@@ -407,6 +441,8 @@ void _Send_VCU_State_CAN() {
 	data[4] = throttle_buffer >> 8;
 	data[5] = throttle_buffer;
 
+	while (HAL_CAN_GetTxMailboxesFreeLevel(_usr_can) == 0) {}
+
 	if (HAL_CAN_AddTxMessage(_usr_can, &header, data, &mailbox) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
 		return;
@@ -424,7 +460,7 @@ void _Send_Auto_Strat_Debug_CAN() {
 	header.IDE = CAN_ID_STD;
 	header.StdId = 0x150;
 	header.RTR = CAN_RTR_DATA;
-	header.DLC = 6;
+	header.DLC = 7;
 
 	data[0] = lap.number;
 	uint32_t lap_time_buffer = lap.time * 100;
@@ -433,7 +469,10 @@ void _Send_Auto_Strat_Debug_CAN() {
 	uint32_t distance_buffer = vehicle_state.distance * 10;
 	data[3] = distance_buffer >> 8;
 	data[4] = distance_buffer;
-	data[5] = (drive_state.mode << 4) | drive_state.setting;
+	data[5] = drive_state.mode;
+	data[6] = drive_state.setting;
+
+	while (HAL_CAN_GetTxMailboxesFreeLevel(_usr_can) == 0) {}
 
 	if (HAL_CAN_AddTxMessage(_usr_can, &header, data, &mailbox) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
@@ -456,6 +495,8 @@ void _Send_Auto_Strat_Debug_CAN() {
 	data2[2] = torque_base_buffer >> 8;
 	data2[3] = torque_base_buffer;
 
+	while (HAL_CAN_GetTxMailboxesFreeLevel(_usr_can) == 0) {}
+
 	if (HAL_CAN_AddTxMessage(_usr_can, &header2, data2, &mailbox2) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
 		return;
@@ -471,6 +512,8 @@ void _Send_BMS_Query_CAN() {
 	header.ExtId = 0x0400FF80;
 	header.RTR = CAN_RTR_DATA;
 	header.DLC = 8;
+
+	while (HAL_CAN_GetTxMailboxesFreeLevel(_usr_can) == 0) {}
 
 	if (HAL_CAN_AddTxMessage(_usr_can, &header, data, &mailbox) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
@@ -488,6 +531,8 @@ void _Send_SMAG_Init_CAN() {
 	header1.RTR = CAN_RTR_DATA;
 	header1.DLC = 8;
 
+	while (HAL_CAN_GetTxMailboxesFreeLevel(_usr_can) == 0) {}
+
 	if (HAL_CAN_AddTxMessage(_usr_can, &header1, data1, &mailbox1) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
 		return;
@@ -503,6 +548,8 @@ void _Send_SMAG_Init_CAN() {
 	header2.StdId = 0x0;
 	header2.RTR = CAN_RTR_DATA;
 	header2.DLC = 8;
+
+	while (HAL_CAN_GetTxMailboxesFreeLevel(_usr_can) == 0) {}
 
 	if (HAL_CAN_AddTxMessage(_usr_can, &header2, data2, &mailbox2) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
@@ -524,12 +571,15 @@ void _Send_MC_Command_CAN() {
 	header.DLC = 4;
 
 	int32_t throttle_buffer = drive_state.torque_ref * 100000;
-	if (stw_state.A.REVERSE)
+	if (stw_state.A.REVERSE == SET) {
 		throttle_buffer = throttle_buffer * -1;
+	}
 	data[0] = throttle_buffer >> 24;
 	data[1] = throttle_buffer >> 16;
 	data[2] = throttle_buffer >> 8;
 	data[3] = throttle_buffer;
+
+	while (HAL_CAN_GetTxMailboxesFreeLevel(_usr_can) == 0) {}
 
 	if (HAL_CAN_AddTxMessage(_usr_can, &header, data, &mailbox) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_MSG_SEND, 0);
@@ -632,9 +682,15 @@ void _Reset_Variables() {
 	drive_state.setting = 0;
 	drive_state.torque_ref = 0;
 	auto_strat_state.internal.DiscreteTimeIntegrator_DSTATE = 0;
+	auto_strat_state.internal.DelayInput1_DSTATE = 0;
+	auto_strat_state.internal.DiscreteTimeIntegrator_PrevRese = 0;
+	automatic_strategy_Init(&auto_strat_state.internal);
 	auto_strat_state.torque_base = 0;
 	auto_strat_state.torque_gain = 0;
 	auto_strat_state.torque_ref = 0;
+	lap.number = 0;
+	lap.prev_time = 107;
+	lap.time = 0;
 	for (uint8_t i = 0; i < 10; i++) {
 		throttle_adc_buffer[i] = 0;
 	}
@@ -645,6 +701,15 @@ void _Reset_Variables() {
 	wiper_state.running = RESET;
 	wiper_state.step = 0;
 	wiper_ARR = 0;
+
+	_speed_hold_pid.Kp = 0.25F;
+	_speed_hold_pid.Ki = 0.1F;
+	_speed_hold_pid.Kd = 0;
+	_speed_hold_pid.dt = 0.05F;
+	_speed_hold_pid.out_max = 1;
+	_speed_hold_pid.out_min = -0.6F;
+	_speed_hold_pid.integral = 0;
+	_speed_hold_pid.prev_error = 0;
 }
 
 /**
@@ -674,7 +739,7 @@ void User_Init(CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UAR
 void User_Loop() {
 	_Read_GPIO_Inputs();
 
-	HAL_GPIO_WritePin(Brake_light_GPIO_Port, Brake_light_Pin, vcu_state.A.BRAKE);
+	HAL_GPIO_WritePin(Brake_light_GPIO_Port, Brake_light_Pin, vcu_state.A.BRAKE == RESET);
 
 	_Receive_CAN();
 

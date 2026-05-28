@@ -9,6 +9,14 @@ The switch table is the "brain" of the car, used for controlling functions like 
 3. **Throttle Input**: Reads and filters the analog potentiometer connected to the throttle pedal
 4. **Motor Control**: Optionally sends throttle reference commands to the motor controller over CAN
 
+### States
+
+| ROT1 (Left) / ROT3 | 1: Manual | 2: Manual Strategy | 3: Automatic Strategy |
+|---|---|---|---|
+| 1 | 0x190 | Steering_Wheel | Button and switch information from the steering wheel |
+| 2 | 0x123 | Encoder | Wheel RPM measurement from the encoder |
+| 3 | 0x129 | VCU_State | Switch positions and filtered throttle |
+
 ## Hardware
 
 ### First prototype
@@ -40,6 +48,7 @@ The CAN2 peripheral is used for CAN communication on the pins PB12 and PB13.
 The messages used are the following:
 
 | Direction | ID | Name | Description |
+|---|---|---|---|
 | Received | 0x190 | Steering_Wheel | Button and switch information from the steering wheel |
 | Received | 0x123 | Encoder | Wheel RPM measurement from the encoder |
 | Sent | 0x129 | VCU_State | Switch positions and filtered throttle |

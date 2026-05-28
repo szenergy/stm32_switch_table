@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'Automatic'.
  *
- * Model version                  : 1.6
+ * Model version                  : 1.11
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Wed May 27 11:02:37 2026
+ * C/C++ source code generated on : Thu May 28 13:51:36 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -143,12 +143,12 @@ real32_T look1_iflf_binlxpw(real32_T u0, const real32_T bp0[], const real32_T
 /* Model step function */
 void Automatic_step(void)
 {
-  /* Outputs for Atomic SubSystem: '<Root>/Automatic Strategy Subsystem' */
+  /* Outputs for Atomic SubSystem: '<Root>/Automatic Strategy' */
 
   /* Inport: '<Root>/Speed In (m//s)' incorporates:
    *  Inport: '<Root>/Distance In (m)'
    *  Inport: '<Root>/Lap time'
-   *  Inport: '<Root>/Previous lap time'
+   *  Inport: '<Root>/Previos lap time'
    *  Inport: '<Root>/RPM'
    *  Outport: '<Root>/Throttle Out'
    *  Outport: '<Root>/Torque Gain'
@@ -156,17 +156,20 @@ void Automatic_step(void)
    */
   automatic_strategy(Automatic_U.SpeedInms, Automatic_U.DistanceInm,
                      Automatic_U.Laptime, Automatic_U.RPM,
-                     Automatic_U.Previouslaptime, &Automatic_Y.ThrottleOut,
+                     Automatic_U.Previoslaptime, &Automatic_Y.ThrottleOut,
                      &Automatic_Y.TorqueGain, &Automatic_Y.TorqueRef,
-                     &Automatic_DW.AutomaticStrategySubsystem);
+                     &Automatic_DW.AutomaticStrategy);
 
-  /* End of Outputs for SubSystem: '<Root>/Automatic Strategy Subsystem' */
+  /* End of Outputs for SubSystem: '<Root>/Automatic Strategy' */
 }
 
 /* Model initialize function */
 void Automatic_initialize(void)
 {
-  /* (no initialization code required) */
+  /* SystemInitialize for Atomic SubSystem: '<Root>/Automatic Strategy' */
+  automatic_strategy_Init(&Automatic_DW.AutomaticStrategy);
+
+  /* End of SystemInitialize for SubSystem: '<Root>/Automatic Strategy' */
 }
 
 /* Model terminate function */

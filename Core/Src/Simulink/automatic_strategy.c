@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'Automatic'.
  *
- * Model version                  : 1.6
+ * Model version                  : 1.11
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Wed May 27 11:02:37 2026
+ * C/C++ source code generated on : Thu May 28 13:51:36 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -17,41 +17,69 @@
  * Validation result: Not run
  */
 
-#include "rtwtypes.h"
 #include "automatic_strategy.h"
+#include "rtwtypes.h"
 #include "Automatic.h"
 #include "Automatic_private.h"
 
-/* Output and update for atomic system: '<Root>/Automatic Strategy Subsystem' */
+/* System initialize for atomic system: '<Root>/Automatic Strategy' */
+void automatic_strategy_Init(DW_automatic_strategy_T *localDW)
+{
+  /* InitializeConditions for DiscreteIntegrator: '<S1>/Discrete-Time Integrator' */
+  localDW->DiscreteTimeIntegrator_PrevRese = 2;
+}
+
+/* Output and update for atomic system: '<Root>/Automatic Strategy' */
 void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
-  real32_T rtu_Laptime, real32_T rtu_RPM, real32_T rtu_Previouslaptime, real32_T
-  *rty_ThrottleOut, real32_T *rty_TorqueGain, real32_T *rty_TorqueRef,
+  real32_T rtu_Laptime, real32_T rtu_RPM, real32_T rtu_Previoslaptime, real32_T *
+  rty_ThrottleOut, real32_T *rty_TorqueGain, real32_T *rty_TorqueRef,
   DW_automatic_strategy_T *localDW)
 {
   real32_T rtb_Product1;
   real32_T rtb_Product5;
+  boolean_T rtb_FixPtRelationalOperator;
 
-  /* Lookup_n-D: '<S1>/n-D Lookup Table8' */
-  *rty_TorqueRef = look1_iflf_linlcpw(rtu_DistanceInm,
-    Automatic_ConstP.nDLookupTable8_bp01Data,
-    Automatic_ConstP.nDLookupTable8_tableData, 1070U);
-
-  /* Lookup_n-D: '<S1>/n-D Lookup Table6' */
-  *rty_TorqueGain = look1_iflf_linlcpw(rtu_Laptime, Automatic_ConstP.pooled1,
-    Automatic_ConstP.nDLookupTable6_tableData, 1070U);
-
-  /* Product: '<S1>/Product5' incorporates:
+  /* Switch: '<S1>/Switch3' incorporates:
+   *  Constant: '<S1>/Constant2'
    *  Constant: '<S1>/Constant6'
    *  Product: '<S1>/Divide'
    *  Sum: '<S1>/Sum5'
    *  Sum: '<S1>/Sum6'
    */
-  rtb_Product5 = (107.0F - (107.0F - rtu_Previouslaptime)) / 107.0F *
-    *rty_TorqueGain;
+  if (rtu_Laptime > 5.0F) {
+    *rty_TorqueRef = (107.0F - (107.0F - rtu_Previoslaptime)) / 107.0F;
+  } else {
+    *rty_TorqueRef = 1.0F;
+  }
+
+  /* End of Switch: '<S1>/Switch3' */
+
+  /* Lookup_n-D: '<S1>/n-D Lookup Table6' */
+  *rty_TorqueGain = look1_iflf_linlcpw(rtu_Laptime, Automatic_ConstP.pooled1,
+    Automatic_ConstP.nDLookupTable6_tableData, 1070U);
+
+  /* Product: '<S1>/Product5' */
+  rtb_Product5 = *rty_TorqueRef * *rty_TorqueGain;
 
   /* Lookup_n-D: '<S1>/n-D Lookup Table5' */
   *rty_TorqueGain = look1_iflf_linlcpw(rtu_Laptime, Automatic_ConstP.pooled1,
     Automatic_ConstP.nDLookupTable5_tableData, 1070U);
+
+  /* RelationalOperator: '<S2>/FixPt Relational Operator' incorporates:
+   *  UnitDelay: '<S2>/Delay Input1'
+   *
+   * Block description for '<S2>/Delay Input1':
+   *
+   *  Store in Global RAM
+   */
+  rtb_FixPtRelationalOperator = (rtu_Previoslaptime !=
+    localDW->DelayInput1_DSTATE);
+
+  /* DiscreteIntegrator: '<S1>/Discrete-Time Integrator' */
+  if (rtb_FixPtRelationalOperator && (localDW->DiscreteTimeIntegrator_PrevRese <=
+       0)) {
+    localDW->DiscreteTimeIntegrator_DSTATE = 0.0F;
+  }
 
   /* Product: '<S1>/Product1' incorporates:
    *  DiscreteIntegrator: '<S1>/Discrete-Time Integrator'
@@ -84,8 +112,25 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
   if (rtu_RPM <= 379.489746F) {
     real32_T rtb_uDLookupTable;
 
-    /* Sum: '<S1>/Sum2' */
-    rtb_Product1 = *rty_TorqueRef - *rty_TorqueGain;
+    /* Lookup_n-D: '<S1>/n-D Lookup Table8' */
+    rtb_Product1 = look1_iflf_linlcpw(rtu_DistanceInm,
+      Automatic_ConstP.nDLookupTable8_bp01Data,
+      Automatic_ConstP.nDLookupTable8_tableData, 1070U);
+
+    /* Switch: '<S1>/Switch2' incorporates:
+     *  Constant: '<S1>/Constant'
+     *  RelationalOperator: '<S1>/Relational Operator'
+     */
+    if (rtb_Product1 > 0.0F) {
+      rtb_uDLookupTable = *rty_TorqueGain;
+    } else {
+      rtb_uDLookupTable = 0.0F;
+    }
+
+    /* Sum: '<S1>/Sum2' incorporates:
+     *  Switch: '<S1>/Switch2'
+     */
+    rtb_Product1 -= rtb_uDLookupTable;
 
     /* Lookup_n-D: '<S1>/1-D Lookup Table' */
     rtb_uDLookupTable = look1_iflf_binlxpw(rtu_RPM,
@@ -127,8 +172,17 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
 
   /* End of Saturate: '<S1>/Saturation' */
 
+  /* Update for UnitDelay: '<S2>/Delay Input1'
+   *
+   * Block description for '<S2>/Delay Input1':
+   *
+   *  Store in Global RAM
+   */
+  localDW->DelayInput1_DSTATE = rtu_Previoslaptime;
+
   /* Update for DiscreteIntegrator: '<S1>/Discrete-Time Integrator' */
   localDW->DiscreteTimeIntegrator_DSTATE += 0.05F * rtb_Product5;
+  localDW->DiscreteTimeIntegrator_PrevRese = (int8_T)rtb_FixPtRelationalOperator;
 }
 
 /*
