@@ -53,13 +53,13 @@ struct {
 } drive_state;
 
 uint16_t throttle_adc_buffer[10];
-struct {
-	uint16_t current;
-	uint16_t prev;
-} throttle_value;
+float throttle_pedal;
 
-uint8_t wiper_ARR = 0;
-struct WIPER_STATE wiper_state;
+struct {
+  uint8_t ARR;
+  uint8_t running;
+  uint8_t step;
+} wiper_state;
 
 struct {
 	float current;
@@ -70,25 +70,6 @@ CAN_HandleTypeDef *_usr_can;
 TIM_HandleTypeDef *_usr_wiper_pwm;
 UART_HandleTypeDef *_usr_uart;
 
-PID_STATE _speed_hold_pid;
-
-float _PID_Step(PID_STATE *pid, float error) {
-    float P = pid->Kp * error;
-    pid->integral += error * pid->dt;
-    float I = pid->Ki * pid->integral;
-    float derivative = (error - pid->prev_error) / pid->dt;
-    float D = pid->Kd * derivative;
-    float output = P + I + D;
-    if (output > pid->out_max) {
-        output = pid->out_max;
-        pid->integral -= error * pid->dt;
-    } else if (output < pid->out_min) {
-        output = pid->out_min;
-        pid->integral -= error * pid->dt;
-    }
-    pid->prev_error = error;
-    return output;
-}
 
 /**
  * This function sends the key-value pair over UART for logging or debug.
@@ -150,47 +131,29 @@ float _Rate_Limit(float value) {
 }
 
 /**
- * Averages the last 10 values provided by the ADC through DMA.
- * @return - the averaged value
- */
-uint16_t _ADC_Moving_Average() {
-	uint32_t sum = 0;
-	for (uint8_t i = 0; i < 10; i++){
-		sum += throttle_adc_buffer[i];
-#ifdef UART_DEBUG
-		char key[32];
-		sprintf(key, "POT_ADC_%d", i);
-		Debug_Msg(key, throttle_adc_buffer[i]);
-#endif
-	}
-	return sum / 10;
-}
-
-/**
  * Reads, filters and debounces the current value of the potentiometer
  * Can be configured from `user.h` with the POT_* variables.
  */
 void _Pot_Filter() {
-	throttle_value.prev = throttle_value.current;
-	throttle_value.current = _ADC_Moving_Average();
+  uint32_t average = 0;
+	for (uint8_t i = 0; i < 10; i++){
+		average += throttle_adc_buffer[i];
+	}
+	average = average / 10;
 
 #ifdef UART_DEBUG
-	Debug_Msg("POT_ADC_AVG", throttle_value.current);
+	Debug_Msg("POT_ADC_AVG", average);
 #endif
 
-	if ((throttle_value.current - throttle_value.prev) <= POT_STEP)
-		throttle_value.current = throttle_value.prev;
-
-	if (throttle_value.current <= POT_ZERO + POT_STEP) {
-		throttle_value.current = POT_VALUES[0];
-	} else if (throttle_value.current <= POT_ZERO + POT_STEP * 19) {
-		throttle_value.current = POT_VALUES[(throttle_value.current - POT_ZERO) / POT_STEP];
-	} else {
-		throttle_value.current = POT_VALUES[19];
-	}
+  throttle_pedal = (average - POT_ZERO) / (POT_MAX - POT_ZERO);
+  if (throttle_pedal < 0) {
+    throttle_pedal = 0;
+  } else if (throttle_pedal > 1) {
+    throttle_pedal = 1;
+  }
 
 #ifdef UART_DEBUG
-	Debug_Msg("POT_ADC_FLTR", throttle_value.current);
+	Debug_Msg("POT_ADC_FLTR", average);
 #endif
 }
 
@@ -209,7 +172,7 @@ void _Update_Vehicle_State() {
 		lap.total_diff +=  lap.time - OPTIMAL_LAP;
 		lap.time = 0;
 	}
-//	if (stw_state.A.FUNCTION1 == SET) {
+//	if (stw_state.A.FUNCTION2 == SET) {
 //		_Reset_Variables();
 //	}
 }
@@ -266,7 +229,7 @@ void _Calculate_MC_Ref() {
 							drive_state.torque_ref = LUT_Z24[(uint16_t)vehicle_state.speed];
 						}
 						break;
-					case ROT_3: // AUMOVIO track strategy
+					case ROT_3:
 						drive_state.setting = 3;
 						if (vehicle_state.wheel_rpm < 224) {
 							drive_state.torque_ref = 1;
@@ -310,16 +273,16 @@ void _Calculate_MC_Ref() {
 				break;
 			case ROT_4:
 				drive_state.mode = DM_SPEED_HOLD;
-				uint8_t target_speed = SPEED_ROT_MAP[stw_state.ROT1];
-				drive_state.torque_ref = _PID_Step(&_speed_hold_pid, target_speed - vehicle_state.speed);
+				//uint8_t target_speed = SPEED_ROT_MAP[stw_state.ROT1];
+
 				break;
 		}
 	}
 
-	if (throttle_value.current > 0) {
+	if (throttle_pedal > drive_state.torque_ref) {
 		drive_state.mode = DM_MANUAL;
 		drive_state.setting = 0;
-		drive_state.torque_ref = throttle_value.current / (float)1023;
+		drive_state.torque_ref = throttle_pedal;
 	}
 
 	if (drive_state.torque_ref != 0) {
@@ -450,7 +413,7 @@ void _Send_VCU_State_CAN() {
 	if (drive_state.torque_ref != 0) {
 		throttle_buffer = drive_state.torque_ref * 100000;
 	} else {
-		throttle_buffer = (throttle_value.current * 100000) / 1023;
+		throttle_buffer = throttle_pedal * 100000;
 	}
 	data[2] = throttle_buffer >> 24;
 	data[3] = throttle_buffer >> 16;
@@ -603,18 +566,17 @@ void _Send_MC_Command_CAN() {
 }
 
 /**
- * This is the periodic wiper.
- * It checks for the wiper switch to be turned on, then executes the left <-> right motion.
+ * This is the periodic wiper task.
+ * It checks for the wiper switch to be turned on, then executes the left-right motion.
  * This also turns on/off the wiper DC-DC converter for the servo.
- * The wiper positions and oscillation frequency are configurable from `user.h`.
  */
 void _Wiper_Tick() {
 	switch (wiper_state.step) {
-	case 0: // Standby state, waiting for wiper switch signal
-		if (vcu_state.A.WIPER == SET)
-			wiper_state.step = 1;
-		break;
+	case 0: // left here for compatibility
+    wiper_state.step = 1;
+    break;
 	case 1: // Setup phase, start PWM and converter
+	  if (vcu_state.A.WIPER != SET) return;
 		HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_SET);
 		HAL_TIM_PWM_Start(_usr_wiper_pwm, TIM_CHANNEL_1);
 		wiper_state.running = SET;
@@ -648,7 +610,7 @@ void _Wiper_Tick() {
 			wiper_state.step = 2;
 		}
 		break;
-	case 4: // Switch is off, go to the center
+	case 4: // Go to the center
 		_usr_wiper_pwm->Instance->CCR1 = WIPER_CENTER;
 		wiper_state.step = 5;
 		break;
@@ -658,8 +620,6 @@ void _Wiper_Tick() {
 		HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
 		wiper_state.running = RESET;
 		wiper_state.step = 0;
-		break;
-	default:
 		break;
 	}
 #ifdef UART_DEBUG
@@ -711,22 +671,12 @@ void _Reset_Variables() {
 	for (uint8_t i = 0; i < 10; i++) {
 		throttle_adc_buffer[i] = 0;
 	}
-	throttle_value.current = POT_ZERO;
-	throttle_value.prev = POT_ZERO;
+	throttle_pedal = 0;
 	rate_limiter.current = 0;
 	rate_limiter.prev = 0;
 	wiper_state.running = RESET;
 	wiper_state.step = 0;
 	wiper_ARR = 0;
-
-	_speed_hold_pid.Kp = 0.25F;
-	_speed_hold_pid.Ki = 0.1F;
-	_speed_hold_pid.Kd = 0;
-	_speed_hold_pid.dt = 0.05F;
-	_speed_hold_pid.out_max = 1;
-	_speed_hold_pid.out_min = -0.6F;
-	_speed_hold_pid.integral = 0;
-	_speed_hold_pid.prev_error = 0;
 }
 
 /**
@@ -774,14 +724,11 @@ void User_Loop() {
 
 	_Send_Auto_Strat_Debug_CAN();
 
-	if (wiper_ARR++ >= WIPER_PERIOD) {
+	if (wiper_state.ARR++ >= WIPER_PERIOD) {
 		_Wiper_Tick();
-		wiper_ARR = 0;
+		wiper_state.ARR = 0;
 
 		_Send_BMS_Query_CAN();
-
-#ifdef DEBUG_LEDS
-		HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_RESET);
-#endif
 	}
+
 }
