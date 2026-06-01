@@ -1,101 +1,104 @@
 # STM32 Switch Table for SZEmission
 
-The switch table is the "brain" of the car, used for controlling functions like lights, wiper, brake and acceleration. It processes the inputs from the switches, steering wheel and throttle pedal then compiles them into it's state message and sends that out over CAN.
+The switch table is the "brain" of our SZEmission electric vehicle, used for controlling functions like lights, wiper and acceleration. It processes the inputs from switches, the steering wheel and the throttle pedal and based on that sends a series of CAN messages. The most important role of the switch table currently is calculating the thorottle reference for the motor based on the pilot's inputs and various strategy algorithms.
 
-## Features
+## Tasks
 
-1. **State Broadcasting**: Sends a CAN message every 50ms about its own state (switch positions, throttle position)
-2. **Wiper Control**: Controls the wiper's DC-DC converter and servo with PWM
-3. **Throttle Input**: Reads and filters the analog potentiometer connected to the throttle pedal
-4. **Motor Control**: Optionally sends throttle reference commands to the motor controller over CAN
+1. **Throttle Input**: Reads and filters the analog potentiometer connected to the throttle pedal.
+2. **Switch Input**: Reads the state of the various switches (eg. wiper, headlight, hazard, ...)
+3. **Input Broadcasting**: Sends a CAN message with the switch positions as well as the throttle and brake pedal.
+4. **Wiper Control**: Controls the windshield wiper's servo and power supply.
+5. **Motor Control**: Sends throttle reference commands to the motor controller over CAN.  
+   This function is turned off when either MC_OW (Motor Control Override) or AUT (Autonomous Mode) switch is active.
 
-## Hardware
+## Drive Modes
 
-### First prototype
+The drive mode can be selected by the pilot using the two rotary switches on the steering wheel. The one on the **left (ROT3)** selects the drive mode, and the one on the **right (ROT1)** selects the setting within that mode. The calculated reference only influences the **accelerate (ACC)** button's behavior, the throttle pedal always overrides these settings. However, for any throttle output, first the direction selector switch has to be in **drive (D)** or **reverse (R)**. The **neutral (N)** setting inibits all acceleration.
 
-Nucleo C092RC Development Board
+All modes, including the pedal, are rate limited to prevent sudden changes in acceleration. This is currently set to 5% per 50 milliseconds up and 25%/50ms down. This means the throttle takes at least 1 second to go from 0% to 100% and 0.2 seconds to go down from 100% to 0%.
 
-- **Microcontroller**: STM32C092RCTx (LQFP64)
-- **Clock**: Internal HSI oscillator running at 48MHz
-- **CAN Interface**: FDCAN1 using the on-board CAN transceiver
-- **Programmer/Debugger**: Nucleo built-in ST-Link
+This table describes the drive modes and their settings:
 
-### Deployment
+| Setting / Mode | A: Manual     | B: Manual Strategy | C: Automatic Strategy | D: Speed Hold (Work in progress) |
+| -------------- | ------------- | ------------------ | --------------------- | -------------------------------- |
+| 1              | 80% throttle  | Z22 ?              | Normal                | 5 km/h                           |
+| 2              | 90% throttle  | Z24 ?              | Switching             | 10 km/h                          |
+| 3              | 100% throttle | Aumovio track      | -                     | 15 km/h                          |
+| 4              | -             | -                  | -                     | 20 km/h                          |
+| 5              | -             | -                  | -                     | 25 km/h                          |
+| 6              | -             | -                  | -                     | 30 km/h                          |
+| 7              | -             | -                  | -                     | 35 km/h                          |
+| 8              | -             | -                  | -                     | 40 km/h                          |
 
-Custom board: "Switch Table v4"
+### Manual Mode
 
+In manual mode, the pilot can chose between 3 pre-defined throttle values that are applied when the **accelerate ACC** button is pressed.
+
+### Manual Strategy Mode
+
+In this mode the pilot can chose what strategy's calculated throttle reference to apply when the **accelerate ACC** button is pressed. These are precalculated values based on wheel RPM or speed. The driver still has to chose where to accelerate in this mode.
+
+### Automatic Strategy Mode
+
+As the name suggests, in this mode the switch table calculates takes into consideration multiple variables and previous simulation results to derermain when and how much to accelerate. The pilot's only job is to hold down the **accelerate (ACC)** button continously which acts as a "dead man's switch" in this mode. This tells the system that it can accelerate when the conditions are right.
+
+### Speed Hold Mode
+
+This mode is currently work in progress, so it doesn't work right now.
+
+This is a simple cruise control where the switch table tries to maintain a constant speed selected by the pilot.
+
+## Implementation
+
+The following sections describe the hardware and software implementation of the switch table. It is intended for developers who want to understand the codebase. If you are just a user you can stop reading now.
+
+The hardware of the switch table is a custom designed PCB with a lot of ports and 6 switches.
+
+- **Custom board:** Switch Table v4
 - **Microcontroller**: STM32F412RET6 (LQFP64)
 - **Clock**: 8MHz external crystal, HSE
 - **CAN Interface**: CAN2 using an ESDCAN24-2BLY transceiver
-- **Programmer/Debugger**: External ST-Link programmer
+- **Micro USB port**: UART1 converted to USB serial using an FTDI chip
+- **Programmer/Debugger**: External ST-Link programmer with an SWD TC2030-IDC connector
 
-## MCU Peripherals Used
+The software is a combination of C code for basic functionality and MATLAB Simulink for the complex strategy algorithms. The Simulink subsystems are generated into C code as reusable functions with the Embedded coder extension and then integrated into the project in STM32CubeIDE. The models are in a different repository, called [sw-table-stm32-simulink](https://github.com/szenergy/sw-table-stm32-simulink). There is also a monorepo that ties these projects together at [szenergy/SZEnergy_BE_CTRL](https://github.com/szenergy/SZEnergy_BE_CTRL).
 
-This project uses 4 types of peripherals to achive it's functionality:
+### Configuration
 
-### CAN bus
+The C codebase is designed to be configurable even for non-programmers. Open the `Core/Inc/user.h` file and on the top are all constants used by the project, which have been set for the current verison of the vehicle.
 
-The CAN2 peripheral is used for CAN communication on the pins PB12 and PB13.
+### Peripherals
 
-The messages used are the following:
+Here it is described in detail how the various peripherals of the `STM32F412RET6` microcontroller are used by this project.
 
-| Direction | ID    | Name           | Description                                           |
-|-----------|-------|----------------|-------------------------------------------------------|
-| Received  | 0x190 | Steering_Wheel | Button and switch information from the steering wheel |
-| Received  | 0x123 | Encoder        | Wheel RPM measurement from the encoder                |
-| Sent      | 0x129 | VCU_State      | Switch positions and filtered throttle                |
-| Sent      | 0xA51 | MC_Command     | Torque reference for the motor controller             |
+#### CAN bus
 
-#### Steering Wheel State (0x190)
+The CAN2 peripheral is connected to the ESDCAN transciever then to the vehicle's CAN bus network. There are many devices and messages on the bus, but the switch table only interacts with a few of them.
 
-```
-Byte 0 (STW_STATE_A):
-  Bit 0: ACC (Cruise Control Activate)
-  Bit 1: DRIVE (Drive Mode)
-  Bit 2: REVERSE (Reverse Mode)
-  Bit 3: LAP (Lap timing signal)
-  Bit 4: TS_L (Traction Control Left)
-  Bit 5: TS_R (Traction Control Right)
-  Bit 6: FUNCTION1 (Reserved)
-  Bit 7: FUNCTION2 (Reserved)
+| Direction | ID    | Name                         | Description                               |
+| --------- | ----- | ---------------------------- | ----------------------------------------- |
+| Received  | 0x190 | Steering_Wheel               | Button and switch states                  |
+| Received  | 0x123 | Encoder_Messages             | Wheel RPM measurement                     |
+| Sent      | 0x129 | VCU_Status_Message           | Switch positions and filtered throttle    |
+| Sent      | 0xA51 | VESC_Relativ_Current_Command | Torque reference for the motor controller |
+| Sent      | 0x150 | Auto_Strat_Debug_1           | Lap number, time, distance and drive mode |
+| Sent      | 0x151 | Auto_Strat_Debug_2           | Simulink model debug values               |
 
-Bytes 1-3: Position of the 3 switches on the steering wheel (STW_STATE_B/C/D)
-```
+#### Timers
 
-#### VCU State (0x129)
+- TIM2 is used to hardware trigger the ADC
+- TIM3 is for PWM generation to the wiper servo, on CH1 (pin PB4)
+- TIM14 is the tick timer that fires every 50ms (20Hz) to wake up the CPU
 
-```
-Byte 0 (VCU_STATE_A):
-  Bit 0: HEADLIGHT
-  Bit 1: HAZARD
-  Bit 2: AUTO
-  Bit 3: BRAKE
-  Bit 4: LIGHTS_ENABLE
-  Bit 5: MC_OW (Motor Control Override)
-  Bit 6: WIPER
-  Bit 7: Reserved
+#### Analog to digital
 
-Byte 1 (VCU_STATE_B):
-  Bit 0: RELAY_NO
-  Bit 1: RELAY_NC
-  Bits 2-7: Reserved
-```
+ADC1 with IN0 on pin PA0 is used to read the throttle pedal position. It is started in DMA mode with the TIM2 timer triggering it every 5ms. It writes the converted values in circular mode to the `throttle_adc_buffer` variable which is a 10 element array.
 
-### Timers
+#### UART
 
-- TIM2 is used to trigger the ADC
-- TIM3 is for PWM generation to the wiper, on it's CH1 output (pin PB4)
-- TIM14 is the tick timer that fires every 50ms to wake up the CPU
+The UART1 is connected to an FTDI chip then to a Micro USB port which acts as a simple serial interface. This is currently used for some debugging, but future plans include updating the firmware, lookup tables, strategy, or drive modes from here.
 
-### Analog to digital
-
-ADC1 with IN0 on pin PA0 is used to read the throttle pedal position. It is started in DMA mode with the TIM2 timer triggering it every 5ms. It writes the conversions to the `throttle_adc_buffer` variable.
-
-### UART
-
-This is only used for debugging purposes. In the `user.h` file, its possible to set what debug outputs the MCU sends over UART.
-
-## Pin Configuration
+### Pin Configuration
 
 ![Picture of the STM32F412RET6 from CubeMX](./docs/sw_table_v4_pin_config.png)
 
@@ -121,45 +124,51 @@ This is only used for debugging purposes. In the `user.h` file, its possible to 
 | UART Receive                 | USART1_RX                    | PB7  | USART1_RX    |
 | UART Receive                 | USART1_TX                    | PB6  | USART1_TX    |
 
-## Code Structure
-
-This code is designed to minimize the amount of user code in generated files. The main working logic is in `user.c` and `user.h`. Another key factor is limiting power consumption, which means also limiting CPU time.
-
-### Directory Breakdown
+### Code Structure
 
 ```
 sw_table_stm32/
-├── sw_table_stm32.ioc            # STM32CubeIDE pin/peripheral configuration
-├── sw_table_stm32.pdf            # Auto-generated hardware pinout diagram
-├── Core/
-│   ├── Inc/
-│   │   ├── main.h               # Generated header, contains the pin definitions
-│   │   └── user.h               # User-defined functions and structures
-│   ├── Src/
-│   │   ├── main.c               # Main entry point and peripheral initialization
-│   │   └── user.c               # User-defined functions, main controller logic
+├── sw_table_stm32.ioc           # STM32CubeMX pin/peripheral configuration
+├── readme.md                    # You are reading this file right now
+├── license                      # MIT License file
+├── docs/                        # Images and other files required for the readme
+├── Core/                        # Source code folder
+│   ├── Inc/                     # Header files
+│   │   ├── Simulink/            # Simulink generated code, do not edit this directly
+│   │   ├── main.h               # Generated header, the pin definitions from the ioc are here
+│   │   └── user.h               # The file for user definitions, data structures and function prototypes
+│   ├── Src/                     # Source files
+│   │   ├── Simulink/            # Simulink generated code, do not edit this directly
+│   │   ├── main.c               # Main entry point and peripheral initialization, imports and calls user code
+│   │   └── user.c               # User-defined functions, variables and controller logic
 ```
 
-### Key Files
+#### Key Files
 
-- **main.c**: System initialization, timer setup, interrupt handlers and main function (entry point)
-- **user.c**: Core application logic including CAN communication, GPIO control, and throttle processing
-- **user.h**: Data structures, function declarations and constant definitions
+- **main.c**: Mostly auto-generated code for initializing the peripherals and the main loop that calls the user code. It also contains a timer interrupt handler.
+- **user.c**: Core application logic devided into functions. This is where inputs are read, processed and CAN messages sent.
+- **user.h**: Data structures, type definitions, public function prototypes and configurable constants are defined here.
 
-## Development Guidelines
+### Development Guidelines
 
-- **Use fixed-point math** instead of floating-point where possible because its faster
-- **Keep ISRs short**: Set flags and do the actual processing in main loop
-- **Power efficiency is key**: Try to use DMA and other hardware logic to limit CPU usage as much as possible
+- **Use single precision or fixed point math.**
+  - The STM32F412RET6 has an FPU but it only supports single precision (float) values.
+- **Avoid interrupts and use hardware features where possible.**
+  - Since power efficiency is a primary concern, therefor the code is designed to minimize CPU usage.
+  - This means using timers that hardware trigger other peripherals and DMA to handle saving of results.
+- **Use structs and understandable variable names.**
+  - The code should be easy to read and understand.
+  - This is especially important for the next generation of students in the team.
+- **Use enums, defined constants, bitfields for better readability.**
+  - Since this code is likely to be read by people with varying levels of programming experience, it is important to make it as clear as possible what the code is doing.
+  - DO NOT HARDCODE VALUES! If you need to use a constant value, define it in `user.h` with a descriptive name.
+- **Add comments where the intention might not be clear.**
+  - If you are doing something that might not be immediately obvious to someone else, add a comment explaining why you are doing it.
 
 ---
-
-### Authors
 
 Created by **SZEnergy Team** for Shell Eco Marathon
 
 - **Váradi Marcell** (varma02@GitHub)
 
-### License
-
-This project is licensed under the MIT License - see the [license](license) file for details.
+This project is licensed under the [MIT License](license).

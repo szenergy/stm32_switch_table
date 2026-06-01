@@ -71,12 +71,16 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+// this is how timer 14 wakes up the cpu
 volatile uint8_t wake_up_flag = RESET;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance == TIM14) {
 		wake_up_flag = SET;
 	}
 }
+
+
 /* USER CODE END 0 */
 
 /**
@@ -117,17 +121,23 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
+  // Initialize the variables and peripherals
+  User_Init(&hcan2, &htim3, &huart1);
+
   // Start the "wake-up" timer,
   // this will wake the CPU every 50ms
-  HAL_TIM_Base_Start_IT(&htim14);
+  if (HAL_TIM_Base_Start_IT(&htim14) != HAL_OK) {
+	  User_Error_Handler(UERR_WAKE_TIMER_FAIL, SET);
+  }
 
-  // Start the throttle pedal reading ADC in DMA mode
+  // Start the ADC reading the throttle pedal in DMA mode
   // and its trigger timer that fires every 5ms
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)throttle_adc_buffer, 10);
-  HAL_TIM_Base_Start(&htim2);
-
-  // Initialize the `user.c`
-  User_Init(&hcan2, &htim3, &huart1);
+  if (HAL_ADC_Start_DMA(&hadc1, (uint32_t*)throttle_adc_buffer, 10) != HAL_OK) {
+	  User_Error_Handler(UERR_ADC_START_FAIL, SET);
+  }
+  if (HAL_TIM_Base_Start(&htim2) != HAL_OK) {
+	  User_Error_Handler(UERR_ADC_TIMER_FAIL, SET);
+  }
 
   /* USER CODE END 2 */
 
@@ -135,23 +145,17 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  // Execute the tasks once, then go to sleep until the TIM14 triggers again
+	  if (wake_up_flag == SET) {
 #ifdef SLEEP_DEBUG_PIN
 	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_SET);
 #endif
-#ifdef UART_DEBUG
-	Debug_Msg("SLEEP", 0);
-#endif
-	  // Execute the tasks once, then go to sleep until the TIM14 triggers again
-	  if (wake_up_flag == SET) {
 		User_Loop();
 		wake_up_flag = RESET;
-	  }
-#ifdef UART_DEBUG
-	Debug_Msg("SLEEP", 1);
-#endif
 #ifdef SLEEP_DEBUG_PIN
 	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_RESET);
 #endif
+	  }
 	HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
     /* USER CODE END WHILE */
 
@@ -353,9 +357,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = WIPER_TIM_PSC-1;
+  htim3.Init.Prescaler = 4-1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = WIPER_TIM_ARR-1;
+  htim3.Init.Period = 40000-1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
