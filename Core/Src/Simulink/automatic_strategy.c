@@ -1,15 +1,14 @@
 /*
- * Academic License - for use in teaching, academic research, and meeting
- * course requirements at degree granting institutions only.  Not for
- * government, commercial, or other organizational use.
+ * Trial License - for use to evaluate programs for possible purchase as
+ * an end-user only.
  *
  * File: automatic_strategy.c
  *
- * Code generated for Simulink model 'auto_strat_C_generate'.
+ * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.17
+ * Model version                  : 1.19
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Thu May 28 16:07:52 2026
+ * C/C++ source code generated on : Tue Jun  2 09:58:58 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -19,8 +18,8 @@
 
 #include "automatic_strategy.h"
 #include "rtwtypes.h"
-#include "auto_strat_C_generate.h"
-#include "auto_strat_C_generate_private.h"
+#include "code_gen_main.h"
+#include "code_gen_main_private.h"
 
 /* System initialize for atomic system: '<Root>/Automatic Strategy' */
 void automatic_strategy_Init(DW_automatic_strategy_T *localDW)
@@ -47,13 +46,13 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
    *  Sum: '<S1>/Sum6'
    */
   rtb_Product5 = (rtu_Totaldiff + 107.0F) / 107.0F * look1_iflf_linlcpw
-    (rtu_Laptime, auto_strat_C_generate_ConstP.pooled1,
-     auto_strat_C_generate_ConstP.pooled11, 1070U);
+    (rtu_Laptime, code_gen_main_ConstP.pooled1, code_gen_main_ConstP.pooled11,
+     1070U);
 
-  /* RelationalOperator: '<S3>/FixPt Relational Operator' incorporates:
-   *  UnitDelay: '<S3>/Delay Input1'
+  /* RelationalOperator: '<S4>/FixPt Relational Operator' incorporates:
+   *  UnitDelay: '<S4>/Delay Input1'
    *
-   * Block description for '<S3>/Delay Input1':
+   * Block description for '<S4>/Delay Input1':
    *
    *  Store in Global RAM
    */
@@ -73,8 +72,7 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
   if (rtu_RPM <= 379.489746F) {
     /* Lookup_n-D: '<S1>/n-D Lookup Table8' */
     *rty_TorqueRef = look1_iflf_linlcpw(rtu_DistanceInm,
-      auto_strat_C_generate_ConstP.pooled3, auto_strat_C_generate_ConstP.pooled2,
-      1070U);
+      code_gen_main_ConstP.pooled3, code_gen_main_ConstP.pooled2, 1070U);
 
     /* Switch: '<S1>/Switch2' incorporates:
      *  Constant: '<S1>/Constant'
@@ -94,15 +92,15 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
        *  Sum: '<S1>/Sum3'
        */
       *rty_TorqueGain = ((rtb_Product5 - rtu_SpeedInms) * look1_iflf_linlcpw
-                         (rtu_Laptime, auto_strat_C_generate_ConstP.pooled1,
-                          auto_strat_C_generate_ConstP.nDLookupTable4_tableData,
-                          1070U) + (localDW->DiscreteTimeIntegrator_DSTATE -
-        rtu_DistanceInm) * look1_iflf_linlcpw(rtu_Laptime,
-        auto_strat_C_generate_ConstP.pooled1,
-        auto_strat_C_generate_ConstP.nDLookupTable5_tableData, 1070U)) +
-        look1_iflf_linlcpw(rtu_Laptime, auto_strat_C_generate_ConstP.pooled1,
-                           auto_strat_C_generate_ConstP.nDLookupTable3_tableData,
-                           1070U) * 0.0F;
+                         (rtu_Laptime, code_gen_main_ConstP.pooled1,
+                          code_gen_main_ConstP.nDLookupTable4_tableData, 1070U)
+                         + (localDW->DiscreteTimeIntegrator_DSTATE -
+                            rtu_DistanceInm) * look1_iflf_linlcpw(rtu_Laptime,
+        code_gen_main_ConstP.pooled1,
+        code_gen_main_ConstP.nDLookupTable5_tableData, 1070U)) +
+        look1_iflf_linlcpw(rtu_Laptime, code_gen_main_ConstP.pooled1,
+                           code_gen_main_ConstP.nDLookupTable3_tableData, 1070U)
+        * 0.0F;
       rtb_Sum2 = *rty_TorqueGain;
     } else {
       rtb_Sum2 = 0.0F;
@@ -114,9 +112,8 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
     rtb_Sum2 = *rty_TorqueRef - rtb_Sum2;
 
     /* Lookup_n-D: '<S1>/1-D Lookup Table' */
-    rtb_uDLookupTable = look1_iflf_binlxpw(rtu_RPM,
-      auto_strat_C_generate_ConstP.pooled5, auto_strat_C_generate_ConstP.pooled4,
-      49U);
+    rtb_uDLookupTable = look1_iflf_binlxpw(rtu_RPM, code_gen_main_ConstP.pooled5,
+      code_gen_main_ConstP.pooled4, 49U);
 
     /* Switch: '<S1>/Switch1' incorporates:
      *  RelationalOperator: '<S1>/LessThanOrEqual1'
@@ -152,9 +149,9 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
 
   /* End of Saturate: '<S1>/Saturation' */
 
-  /* Update for UnitDelay: '<S3>/Delay Input1'
+  /* Update for UnitDelay: '<S4>/Delay Input1'
    *
-   * Block description for '<S3>/Delay Input1':
+   * Block description for '<S4>/Delay Input1':
    *
    *  Store in Global RAM
    */

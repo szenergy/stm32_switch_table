@@ -14,7 +14,7 @@
 
 // *** Definitions ***
 
-// Optimal lap time for the automatic strategy
+// Optimal lap time in seconds, used for strategy
 #define OPTIMAL_LAP (float)107
 
 // These variables are used for lap button protection
@@ -29,7 +29,7 @@
 #define POT_ZERO   (float)2050
 #define POT_MAX    (float)2300
 
-// Speed calculation from wheel RPM in km/h
+// This number is multiplied by the wheel RPM to get the vehicle speed in km/h
 #define SPEED_MULT_FACTOR (float)0.10376
 
 // Rate limits for changes in torque per 50 milliseconds
@@ -39,7 +39,7 @@
 // The time between wipes is in ticks, each tick is equal to 50 milliseconds
 #define WIPER_PERIOD   (uint16_t)25     // 25 => 1.25s
 // Configure the wiper positions
-// For the current servo: H-SPEED HSX181, the PWM region
+// The current servo is an H-SPEED HSX181, its PWM region
 // starts at 0.5ms = 1000 counts, and ends at 2.8ms = 5500 counts at 50Hz
 #define WIPER_LEFT     (uint16_t)4600
 #define WIPER_RIGHT    (uint16_t)4000
@@ -63,18 +63,24 @@
 
 
 // *** Global variables ***
+
+
 extern uint16_t throttle_adc_buffer[10];
 
 
 // *** User Functions ***
+
+
 void User_Init(CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UART_HandleTypeDef *uart_ptr);
 void User_Loop();
 void Debug_Msg(char *key, uint32_t value);
 
 
 // *** Error handling ***
+
+
 typedef enum {
-	UERR_UNKNOWN,
+	UERR_UNKNOWN = 1,
 	UERR_CAN_FILTER_CONFIG,
 	UERR_CAN_START,
 	UERR_CAN_MSG_SEND,
@@ -88,6 +94,7 @@ void User_Error_Handler(USER_ERROR err, uint8_t fatal);
 
 
 // *** Data structures and types ***
+
 
 typedef enum {
 	DM_NEUTRAL,

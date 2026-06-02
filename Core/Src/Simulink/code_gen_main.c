@@ -1,15 +1,14 @@
 /*
- * Academic License - for use in teaching, academic research, and meeting
- * course requirements at degree granting institutions only.  Not for
- * government, commercial, or other organizational use.
+ * Trial License - for use to evaluate programs for possible purchase as
+ * an end-user only.
  *
- * File: auto_strat_C_generate.c
+ * File: code_gen_main.c
  *
- * Code generated for Simulink model 'auto_strat_C_generate'.
+ * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.17
+ * Model version                  : 1.19
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Thu May 28 16:07:52 2026
+ * C/C++ source code generated on : Tue Jun  2 09:58:58 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -17,19 +16,19 @@
  * Validation result: Not run
  */
 
-#include "auto_strat_C_generate.h"
+#include "code_gen_main.h"
 #include "automatic_strategy.h"
+#include "speed_hold.h"
 #include "switching_automatic_strategy.h"
 #include "rtwtypes.h"
-#include "auto_strat_C_generate_private.h"
+#include "code_gen_main_private.h"
 
 /* Block states (default storage) */
-DW_auto_strat_C_generate_T auto_strat_C_generate_DW;
+DW_code_gen_main_T code_gen_main_DW;
 
 /* Real-time model */
-static RT_MODEL_auto_strat_C_generat_T auto_strat_C_generate_M_;
-RT_MODEL_auto_strat_C_generat_T *const auto_strat_C_generate_M =
-  &auto_strat_C_generate_M_;
+static RT_MODEL_code_gen_main_T code_gen_main_M_;
+RT_MODEL_code_gen_main_T *const code_gen_main_M = &code_gen_main_M_;
 real32_T look1_iflf_linlcpw(real32_T u0, const real32_T bp0[], const real32_T
   table[], uint32_T maxIndex)
 {
@@ -138,7 +137,7 @@ real32_T look1_iflf_binlxpw(real32_T u0, const real32_T bp0[], const real32_T
 }
 
 /* Model step function */
-void auto_strat_C_generate_step(void)
+void code_gen_main_step(void)
 {
   real32_T rtb_ThrottleOut_a;
   real32_T rtb_TorqueGain;
@@ -147,9 +146,15 @@ void auto_strat_C_generate_step(void)
   /* Outputs for Atomic SubSystem: '<Root>/Automatic Strategy' */
   automatic_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut_a,
                      &rtb_TorqueGain, &rtb_TorqueRef_k,
-                     &auto_strat_C_generate_DW.AutomaticStrategy);
+                     &code_gen_main_DW.AutomaticStrategy);
 
   /* End of Outputs for SubSystem: '<Root>/Automatic Strategy' */
+
+  /* Outputs for Atomic SubSystem: '<Root>/Speed Hold' */
+  speed_hold(0.0F, 0.0F, &rtb_ThrottleOut_a, &rtb_TorqueGain,
+             &code_gen_main_DW.SpeedHold);
+
+  /* End of Outputs for SubSystem: '<Root>/Speed Hold' */
 
   /* Outputs for Atomic SubSystem: '<Root>/Switching Automatic Strategy' */
   switching_automatic_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut_a,
@@ -159,16 +164,16 @@ void auto_strat_C_generate_step(void)
 }
 
 /* Model initialize function */
-void auto_strat_C_generate_initialize(void)
+void code_gen_main_initialize(void)
 {
   /* SystemInitialize for Atomic SubSystem: '<Root>/Automatic Strategy' */
-  automatic_strategy_Init(&auto_strat_C_generate_DW.AutomaticStrategy);
+  automatic_strategy_Init(&code_gen_main_DW.AutomaticStrategy);
 
   /* End of SystemInitialize for SubSystem: '<Root>/Automatic Strategy' */
 }
 
 /* Model terminate function */
-void auto_strat_C_generate_terminate(void)
+void code_gen_main_terminate(void)
 {
   /* (no terminate code required) */
 }

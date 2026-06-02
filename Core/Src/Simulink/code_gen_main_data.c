@@ -1,15 +1,14 @@
 /*
- * Academic License - for use in teaching, academic research, and meeting
- * course requirements at degree granting institutions only.  Not for
- * government, commercial, or other organizational use.
+ * Trial License - for use to evaluate programs for possible purchase as
+ * an end-user only.
  *
- * File: auto_strat_C_generate_data.c
+ * File: code_gen_main_data.c
  *
- * Code generated for Simulink model 'auto_strat_C_generate'.
+ * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.17
+ * Model version                  : 1.19
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Thu May 28 16:07:52 2026
+ * C/C++ source code generated on : Tue Jun  2 09:58:58 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -17,10 +16,10 @@
  * Validation result: Not run
  */
 
-#include "auto_strat_C_generate.h"
+#include "code_gen_main.h"
 
 /* Constant parameters (default storage) */
-const ConstP_auto_strat_C_generate_T auto_strat_C_generate_ConstP = {
+const ConstP_code_gen_main_T code_gen_main_ConstP = {
   /* Computed Parameter: nDLookupTable3_tableData
    * Referenced by: '<S1>/n-D Lookup Table3'
    */
@@ -247,7 +246,7 @@ const ConstP_auto_strat_C_generate_T auto_strat_C_generate_ConstP = {
    *   '<S1>/n-D Lookup Table4'
    *   '<S1>/n-D Lookup Table5'
    *   '<S1>/n-D Lookup Table6'
-   *   '<S2>/n-D Lookup Table6'
+   *   '<S3>/n-D Lookup Table6'
    */
   { 0.0F, 0.1F, 0.2F, 0.3F, 0.4F, 0.5F, 0.6F, 0.7F, 0.8F, 0.9F, 1.0F, 1.1F, 1.2F,
     1.3F, 1.4F, 1.5F, 1.6F, 1.7F, 1.8F, 1.9F, 2.0F, 2.1F, 2.2F, 2.3F, 2.4F, 2.5F,
@@ -781,10 +780,10 @@ const ConstP_auto_strat_C_generate_T auto_strat_C_generate_ConstP = {
     -2.41675711F, -2.05842209F, -1.73066247F, -1.43027F, -1.15381515F,
     -0.897691071F, -0.65814954F, -0.43132928F, -0.213281751F, -0.0F },
 
-  /* Pooled Parameter (Expression: trq_ref_dat)
+  /* Pooled Parameter (Expression: AUMOVIO_outline_trq_ref_dat)
    * Referenced by:
    *   '<S1>/n-D Lookup Table8'
-   *   '<S2>/n-D Lookup Table8'
+   *   '<S3>/n-D Lookup Table8'
    */
   { 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F,
     40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F,
@@ -901,10 +900,10 @@ const ConstP_auto_strat_C_generate_T auto_strat_C_generate_ConstP = {
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
     0.0F, 0.0F },
 
-  /* Pooled Parameter (Expression: trq_ref_dist)
+  /* Pooled Parameter (Expression: AUMOVIO_outline_trq_ref_dist)
    * Referenced by:
    *   '<S1>/n-D Lookup Table8'
-   *   '<S2>/n-D Lookup Table8'
+   *   '<S3>/n-D Lookup Table8'
    */
   { 0.0F, 0.00401195604F, 0.0160270315F, 0.0360138491F, 0.0639451146F,
     0.099804841F, 0.143579453F, 0.195255294F, 0.254818887F, 0.322256476F,
@@ -1089,7 +1088,7 @@ const ConstP_auto_strat_C_generate_T auto_strat_C_generate_ConstP = {
   /* Pooled Parameter (Expression: SZEVOL_2_1_PESC1_MTPA_FW69_22_lim_trq)
    * Referenced by:
    *   '<S1>/1-D Lookup Table'
-   *   '<S2>/1-D Lookup Table'
+   *   '<S3>/1-D Lookup Table'
    */
   { 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F,
     40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F,
@@ -1104,7 +1103,7 @@ const ConstP_auto_strat_C_generate_T auto_strat_C_generate_ConstP = {
   /* Pooled Parameter (Expression: SZEVOL_2_1_PESC1_MTPA_FW69_22_lim_rpm)
    * Referenced by:
    *   '<S1>/1-D Lookup Table'
-   *   '<S2>/1-D Lookup Table'
+   *   '<S3>/1-D Lookup Table'
    */
   { 0.0F, 7.74468851F, 15.489377F, 23.234066F, 30.978754F, 38.7234421F,
     46.468132F, 54.212822F, 61.9575081F, 69.7022F, 77.4468842F, 85.1915741F,
@@ -1119,7 +1118,7 @@ const ConstP_auto_strat_C_generate_T auto_strat_C_generate_ConstP = {
   /* Pooled Parameter (Expression: AUMOVIO_outline_Spd_ts_Data)
    * Referenced by:
    *   '<S1>/n-D Lookup Table6'
-   *   '<S2>/n-D Lookup Table6'
+   *   '<S3>/n-D Lookup Table6'
    */
   { 0.0F, 0.0801872462F, 0.160061955F, 0.239625096F, 0.318977356F, 0.398194551F,
     0.477274776F, 0.556219697F, 0.635029137F, 0.713699877F, 0.792233646F,

@@ -1,15 +1,14 @@
 /*
- * Academic License - for use in teaching, academic research, and meeting
- * course requirements at degree granting institutions only.  Not for
- * government, commercial, or other organizational use.
+ * Trial License - for use to evaluate programs for possible purchase as
+ * an end-user only.
  *
  * File: automatic_strategy.h
  *
- * Code generated for Simulink model 'auto_strat_C_generate'.
+ * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.17
+ * Model version                  : 1.19
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Thu May 28 16:07:52 2026
+ * C/C++ source code generated on : Tue Jun  2 09:58:58 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -19,15 +18,15 @@
 
 #ifndef automatic_strategy_h_
 #define automatic_strategy_h_
-#ifndef auto_strat_C_generate_COMMON_INCLUDES_
-#define auto_strat_C_generate_COMMON_INCLUDES_
+#ifndef code_gen_main_COMMON_INCLUDES_
+#define code_gen_main_COMMON_INCLUDES_
 #include "rtwtypes.h"
 #include "math.h"
-#endif                              /* auto_strat_C_generate_COMMON_INCLUDES_ */
+#endif                                 /* code_gen_main_COMMON_INCLUDES_ */
 
 /* Block states (default storage) for system '<Root>/Automatic Strategy' */
 typedef struct {
-  real32_T DelayInput1_DSTATE;         /* '<S3>/Delay Input1' */
+  real32_T DelayInput1_DSTATE;         /* '<S4>/Delay Input1' */
   real32_T DiscreteTimeIntegrator_DSTATE;/* '<S1>/Discrete-Time Integrator' */
   int8_T DiscreteTimeIntegrator_PrevRese;/* '<S1>/Discrete-Time Integrator' */
 } DW_automatic_strategy_T;

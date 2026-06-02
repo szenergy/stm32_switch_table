@@ -10,6 +10,8 @@
 #include "user.h"
 #include "automatic_strategy.h"
 #include "switching_automatic_strategy.h"
+#include "speed_hold.h"
+
 #ifdef UART_DEBUG
 #include <stdio.h>
 #endif
@@ -45,6 +47,12 @@ struct {
 	float torque_base;
 	float torque_ref;
 } auto_strat_state;
+
+struct {
+	DW_speed_hold_T internal;
+	float error;
+	float torque_ref;
+} speed_hold_state;
 
 struct {
 	DRIVE_MODE_ENUM mode;
@@ -95,6 +103,10 @@ void _Reset_Variables() {
 	auto_strat_state.torque_base = 0;
 	auto_strat_state.torque_gain = 0;
 	auto_strat_state.torque_ref = 0;
+	speed_hold_state.error = 0;
+	speed_hold_state.torque_ref = 0;
+	speed_hold_state.internal.Filter_DSTATE = 0;
+	speed_hold_state.internal.Integrator_DSTATE = 0;
 	lap.number = 0;
 	lap.prev_time = OPTIMAL_LAP;
 	lap.total_diff = 0;
@@ -142,10 +154,7 @@ void User_Error_Handler(USER_ERROR err, uint8_t fatal) {
 		HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(LED2_Red_GPIO_Port, LED2_Red_Pin, GPIO_PIN_SET);
 		__disable_irq();
-		while (1) {
-			HAL_GPIO_TogglePin(LED2_Red_GPIO_Port, LED2_Red_Pin);
-			HAL_Delay(250);
-		}
+		while (1) {}
 	} else {
 #ifdef DEBUG_LEDS
 		HAL_GPIO_WritePin(LED1_Yellow_GPIO_Port, LED1_Yellow_Pin, GPIO_PIN_SET);
@@ -217,8 +226,9 @@ void _Update_Vehicle_State() {
 		lap.total_diff +=  lap.time - OPTIMAL_LAP;
 		lap.time = 0;
 	}
+
 	// Steering wheel reset button restarts the switch table
-	if (stw_state.A.FUNCTION2 == SET) {
+	if (stw_state.A.FUNCTION1 == SET) {
 		NVIC_SystemReset();
 	}
 }
@@ -274,7 +284,7 @@ void _Calculate_MC_Ref() {
 					}
 					break;
 				case ROT_3:
-					drive_state.setting = 3;
+					drive_state.setting = 3; // Aumovio CCW strat
 					if (vehicle_state.wheel_rpm < 224) {
 						drive_state.torque_ref = 1;
 					} else {
@@ -318,8 +328,15 @@ void _Calculate_MC_Ref() {
 		case ROT_4:
 			drive_state.mode = DM_SPEED_HOLD;
 			drive_state.setting = stw_state.ROT1;
-			//uint8_t target_speed = SPEED_ROT_MAP[stw_state.ROT1];
-			// simulink PID logic here
+			uint8_t target_speed = SPEED_ROT_MAP[stw_state.ROT1];
+			speed_hold(
+					vehicle_state.speed,
+					target_speed,
+					&speed_hold_state.torque_ref,
+					&speed_hold_state.error,
+					&speed_hold_state.internal
+			);
+			drive_state.torque_ref = speed_hold_state.torque_ref;
 			break;
 	}
 

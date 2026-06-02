@@ -2,7 +2,7 @@
  * Trial License - for use to evaluate programs for possible purchase as
  * an end-user only.
  *
- * File: switching_automatic_strategy.h
+ * File: speed_hold.h
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
@@ -16,20 +16,24 @@
  * Validation result: Not run
  */
 
-#ifndef switching_automatic_strategy_h_
-#define switching_automatic_strategy_h_
+#ifndef speed_hold_h_
+#define speed_hold_h_
 #ifndef code_gen_main_COMMON_INCLUDES_
 #define code_gen_main_COMMON_INCLUDES_
 #include "rtwtypes.h"
 #include "math.h"
 #endif                                 /* code_gen_main_COMMON_INCLUDES_ */
 
-extern void switching_automatic_strategy(real32_T rtu_SpeedInms, real32_T
-  rtu_DistanceInm, real32_T rtu_Laptime, real32_T rtu_RPM, real32_T
-  rtu_Totaldiff, real32_T *rty_ThrottleOut, real32_T *rty_TorqueGain, real32_T
-  *rty_TorqueRef);
+/* Block states (default storage) for system '<Root>/Speed Hold' */
+typedef struct {
+  real32_T Filter_DSTATE;              /* '<S35>/Filter' */
+  real32_T Integrator_DSTATE;          /* '<S40>/Integrator' */
+} DW_speed_hold_T;
 
-#endif                                 /* switching_automatic_strategy_h_ */
+extern void speed_hold(real32_T rtu_CurrentSpeed, real32_T rtu_DesiredSpeed,
+  real32_T *rty_ThrottleOut, real32_T *rty_Error, DW_speed_hold_T *localDW);
+
+#endif                                 /* speed_hold_h_ */
 
 /*
  * File trailer for generated code.
