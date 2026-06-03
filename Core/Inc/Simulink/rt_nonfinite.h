@@ -2,7 +2,7 @@
  * Trial License - for use to evaluate programs for possible purchase as
  * an end-user only.
  *
- * File: code_gen_main_private.h
+ * File: rt_nonfinite.h
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
@@ -16,18 +16,22 @@
  * Validation result: Not run
  */
 
-#ifndef code_gen_main_private_h_
-#define code_gen_main_private_h_
+#ifndef rt_nonfinite_h_
+#define rt_nonfinite_h_
 #include "rtwtypes.h"
-#include "code_gen_main_types.h"
-#include "code_gen_main.h"
 
-extern real32_T look1_iflf_linlcpw(real32_T u0, const real32_T bp0[], const
-  real32_T table[], uint32_T maxIndex);
-extern real32_T look1_iflf_binlxpw(real32_T u0, const real32_T bp0[], const
-  real32_T table[], uint32_T maxIndex);
+extern real_T rtInf;
+extern real_T rtMinusInf;
+extern real_T rtNaN;
+extern real32_T rtInfF;
+extern real32_T rtMinusInfF;
+extern real32_T rtNaNF;
+extern boolean_T rtIsInf(real_T value);
+extern boolean_T rtIsInfF(real32_T value);
+extern boolean_T rtIsNaN(real_T value);
+extern boolean_T rtIsNaNF(real32_T value);
 
-#endif                                 /* code_gen_main_private_h_ */
+#endif                                 /* rt_nonfinite_h_ */
 
 /*
  * File trailer for generated code.

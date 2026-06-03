@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.19
+ * Model version                  : 1.21
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Tue Jun  2 09:58:58 2026
+ * C/C++ source code generated on : Tue Jun  2 21:25:43 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -21,13 +21,14 @@
 #ifndef code_gen_main_COMMON_INCLUDES_
 #define code_gen_main_COMMON_INCLUDES_
 #include "rtwtypes.h"
+#include "rt_nonfinite.h"
 #include "math.h"
 #endif                                 /* code_gen_main_COMMON_INCLUDES_ */
 
 /* Block states (default storage) for system '<Root>/Speed Hold' */
 typedef struct {
-  real32_T Filter_DSTATE;              /* '<S35>/Filter' */
-  real32_T Integrator_DSTATE;          /* '<S40>/Integrator' */
+  real32_T Filter_DSTATE;              /* '<S38>/Filter' */
+  real32_T Integrator_DSTATE;          /* '<S43>/Integrator' */
 } DW_speed_hold_T;
 
 extern void speed_hold(real32_T rtu_CurrentSpeed, real32_T rtu_DesiredSpeed,

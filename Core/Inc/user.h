@@ -22,9 +22,6 @@
 #define LAP_BTN_MIN_TIME (float)5
 #define LAP_BTN_MIN_DISTANCE (float)50
 
-// This maps reference speeds in km/h for the speed hold mode to the setting selector switch positions
-#define SPEED_ROT_MAP (uint8_t[]){[ROT_1] = 5, [ROT_2] = 10, [ROT_3] = 15, [ROT_4] = 20, [ROT_5] = 25, [ROT_6] = 30, [ROT_7] = 35, [ROT_8] = 40}
-
 // Throttle pedal limits
 #define POT_ZERO   (float)2050
 #define POT_MAX    (float)2300
@@ -52,7 +49,7 @@
 // The following are debug options.
 // Uncomment (remove the // from the start) the defines to enable them.
 //#define DEBUG_LEDS            // Debug LEDs on the panel's side
-//#define SLEEP_DEBUG_PIN       // Output sleep/awake state on PC12 pin
+#define SLEEP_DEBUG_PIN       // Output sleep/awake state on PC12 pin
 //#define WIPER_SWEEP_DEBUG     // Moves wiper PWM from 0% fill to 100% slowly
 //#define UART_DEBUG            // Sends some debug values on the UART
 
@@ -162,6 +159,6 @@ typedef enum {
 	ROT_8 = 64
 } ROT_POS_ENUM;
 
-
+#define ROT_TO_INT (uint8_t[]){[ROT_1] = 1, [ROT_2] = 2, [ROT_3] = 3, [ROT_4] = 4, [ROT_5] = 5, [ROT_6] = 6, [ROT_7] = 7, [ROT_8] = 8}
 
 #endif /* INC_USER_H_ */

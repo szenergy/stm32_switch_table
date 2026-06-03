@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.19
+ * Model version                  : 1.21
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Tue Jun  2 09:58:58 2026
+ * C/C++ source code generated on : Tue Jun  2 21:25:43 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -26,23 +26,23 @@ void speed_hold(real32_T rtu_CurrentSpeed, real32_T rtu_DesiredSpeed, real32_T
   real32_T rtb_FilterCoefficient;
   real32_T u0;
 
-  /* Sum: '<S2>/Calculate Error' */
+  /* Sum: '<S3>/Calculate Error' */
   *rty_Error = rtu_CurrentSpeed - rtu_DesiredSpeed;
 
-  /* Gain: '<S43>/Filter Coefficient' incorporates:
-   *  DiscreteIntegrator: '<S35>/Filter'
-   *  Gain: '<S33>/Derivative Gain'
-   *  Sum: '<S35>/SumD'
+  /* Gain: '<S46>/Filter Coefficient' incorporates:
+   *  DiscreteIntegrator: '<S38>/Filter'
+   *  Gain: '<S36>/Derivative Gain'
+   *  Sum: '<S38>/SumD'
    */
   rtb_FilterCoefficient = (0.0F * *rty_Error - localDW->Filter_DSTATE) * 100.0F;
 
-  /* Sum: '<S49>/Sum' incorporates:
-   *  DiscreteIntegrator: '<S40>/Integrator'
-   *  Gain: '<S45>/Proportional Gain'
+  /* Sum: '<S52>/Sum' incorporates:
+   *  DiscreteIntegrator: '<S43>/Integrator'
+   *  Gain: '<S48>/Proportional Gain'
    */
   u0 = (0.25F * *rty_Error + localDW->Integrator_DSTATE) + rtb_FilterCoefficient;
 
-  /* Saturate: '<S47>/Saturation' */
+  /* Saturate: '<S50>/Saturation' */
   if (u0 > 1.0F) {
     *rty_ThrottleOut = 1.0F;
   } else if (u0 < -0.6F) {
@@ -51,13 +51,13 @@ void speed_hold(real32_T rtu_CurrentSpeed, real32_T rtu_DesiredSpeed, real32_T
     *rty_ThrottleOut = u0;
   }
 
-  /* End of Saturate: '<S47>/Saturation' */
+  /* End of Saturate: '<S50>/Saturation' */
 
-  /* Update for DiscreteIntegrator: '<S35>/Filter' */
+  /* Update for DiscreteIntegrator: '<S38>/Filter' */
   localDW->Filter_DSTATE += 0.05F * rtb_FilterCoefficient;
 
-  /* Update for DiscreteIntegrator: '<S40>/Integrator' incorporates:
-   *  Gain: '<S37>/Integral Gain'
+  /* Update for DiscreteIntegrator: '<S43>/Integrator' incorporates:
+   *  Gain: '<S40>/Integral Gain'
    */
   localDW->Integrator_DSTATE += 0.1F * *rty_Error * 0.05F;
 }

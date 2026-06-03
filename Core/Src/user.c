@@ -10,6 +10,7 @@
 #include "user.h"
 #include "automatic_strategy.h"
 #include "switching_automatic_strategy.h"
+#include "hybrid_automatic_strategy.h"
 #include "speed_hold.h"
 
 #ifdef UART_DEBUG
@@ -43,6 +44,7 @@ struct {
 
 struct {
 	DW_automatic_strategy_T internal;
+	DW_hybrid_automatic_strategy_T hybrid_internal;
 	float torque_gain;
 	float torque_base;
 	float torque_ref;
@@ -80,6 +82,24 @@ CAN_HandleTypeDef *_usr_can;
 TIM_HandleTypeDef *_usr_wiper_pwm;
 UART_HandleTypeDef *_usr_uart;
 
+void _Reset_Auto_Strat_State() {
+	auto_strat_state.internal.DiscreteTimeIntegrator_DSTATE = 0;
+	auto_strat_state.internal.DelayInput1_DSTATE = 0;
+	auto_strat_state.internal.DiscreteTimeIntegrator_PrevRese = 0;
+	automatic_strategy_Init(&auto_strat_state.internal);
+	auto_strat_state.hybrid_internal.DelayInput1_DSTATE = 0;
+	auto_strat_state.hybrid_internal.DiscreteTimeIntegrator_DSTATE = 0;
+	auto_strat_state.hybrid_internal.DiscreteTimeIntegrator_PrevRese = 0;
+	hybrid_automatic_strategy_Init(&auto_strat_state.hybrid_internal);
+	auto_strat_state.torque_base = 0;
+	auto_strat_state.torque_gain = 0;
+	auto_strat_state.torque_ref = 0;
+	speed_hold_state.error = 0;
+	speed_hold_state.torque_ref = 0;
+	speed_hold_state.internal.Filter_DSTATE = 0;
+	speed_hold_state.internal.Integrator_DSTATE = 0;
+}
+
 /**
  * Resets all global variables to their default values.
  */
@@ -96,17 +116,6 @@ void _Reset_Variables() {
 	drive_state.mode = DM_NEUTRAL;
 	drive_state.setting = 0;
 	drive_state.torque_ref = 0;
-	auto_strat_state.internal.DiscreteTimeIntegrator_DSTATE = 0;
-	auto_strat_state.internal.DelayInput1_DSTATE = 0;
-	auto_strat_state.internal.DiscreteTimeIntegrator_PrevRese = 0;
-	automatic_strategy_Init(&auto_strat_state.internal);
-	auto_strat_state.torque_base = 0;
-	auto_strat_state.torque_gain = 0;
-	auto_strat_state.torque_ref = 0;
-	speed_hold_state.error = 0;
-	speed_hold_state.torque_ref = 0;
-	speed_hold_state.internal.Filter_DSTATE = 0;
-	speed_hold_state.internal.Integrator_DSTATE = 0;
 	lap.number = 0;
 	lap.prev_time = OPTIMAL_LAP;
 	lap.total_diff = 0;
@@ -120,6 +129,7 @@ void _Reset_Variables() {
 	wiper_state.running = RESET;
 	wiper_state.step = 0;
 	wiper_state.ARR = 0;
+	_Reset_Auto_Strat_State();
 }
 
 
@@ -310,6 +320,7 @@ void _Calculate_MC_Ref() {
 							&auto_strat_state.internal
 					);
 					drive_state.torque_ref = auto_strat_state.torque_ref;
+					break;
 				case ROT_2:
 					drive_state.setting = 2;
 					switching_automatic_strategy(
@@ -323,12 +334,28 @@ void _Calculate_MC_Ref() {
 							&auto_strat_state.torque_base
 					);
 					drive_state.torque_ref = auto_strat_state.torque_ref;
+					break;
+				case ROT_3:
+					drive_state.setting = 3;
+					hybrid_automatic_strategy(
+							vehicle_state.speed / 3.6F,
+							vehicle_state.distance,
+							lap.time,
+							vehicle_state.wheel_rpm,
+							lap.total_diff,
+							&auto_strat_state.torque_ref,
+							&auto_strat_state.torque_gain,
+							&auto_strat_state.torque_base,
+							&auto_strat_state.hybrid_internal
+					);
+					drive_state.torque_ref = auto_strat_state.torque_ref;
+					break;
 			}
 			break;
 		case ROT_4:
 			drive_state.mode = DM_SPEED_HOLD;
-			drive_state.setting = stw_state.ROT1;
-			uint8_t target_speed = SPEED_ROT_MAP[stw_state.ROT1];
+			drive_state.setting = ROT_TO_INT[stw_state.ROT1];
+			uint8_t target_speed = drive_state.setting * 5;
 			speed_hold(
 					vehicle_state.speed,
 					target_speed,

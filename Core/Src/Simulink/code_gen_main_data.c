@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.19
+ * Model version                  : 1.21
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Tue Jun  2 09:58:58 2026
+ * C/C++ source code generated on : Tue Jun  2 21:25:43 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -20,8 +20,10 @@
 
 /* Constant parameters (default storage) */
 const ConstP_code_gen_main_T code_gen_main_ConstP = {
-  /* Computed Parameter: nDLookupTable3_tableData
-   * Referenced by: '<S1>/n-D Lookup Table3'
+  /* Pooled Parameter (Expression: AUMOVIO_outline_K1_w_ff)
+   * Referenced by:
+   *   '<S1>/n-D Lookup Table3'
+   *   '<S2>/n-D Lookup Table3'
    */
   { -0.123264074F, -0.123841211F, -0.124453F, -0.125096396F, -0.125646234F,
     -0.125889167F, -0.125934035F, -0.125977725F, -0.126018122F, -0.126058221F,
@@ -246,7 +248,11 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
    *   '<S1>/n-D Lookup Table4'
    *   '<S1>/n-D Lookup Table5'
    *   '<S1>/n-D Lookup Table6'
-   *   '<S3>/n-D Lookup Table6'
+   *   '<S2>/n-D Lookup Table3'
+   *   '<S2>/n-D Lookup Table4'
+   *   '<S2>/n-D Lookup Table5'
+   *   '<S2>/n-D Lookup Table6'
+   *   '<S4>/n-D Lookup Table6'
    */
   { 0.0F, 0.1F, 0.2F, 0.3F, 0.4F, 0.5F, 0.6F, 0.7F, 0.8F, 0.9F, 1.0F, 1.1F, 1.2F,
     1.3F, 1.4F, 1.5F, 1.6F, 1.7F, 1.8F, 1.9F, 2.0F, 2.1F, 2.2F, 2.3F, 2.4F, 2.5F,
@@ -347,8 +353,10 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
     105.8F, 105.9F, 106.0F, 106.1F, 106.2F, 106.3F, 106.4F, 106.5F, 106.6F,
     106.7F, 106.8F, 106.9F, 107.0F },
 
-  /* Computed Parameter: nDLookupTable5_tableData
-   * Referenced by: '<S1>/n-D Lookup Table5'
+  /* Pooled Parameter (Expression: AUMOVIO_outline_K1_x2)
+   * Referenced by:
+   *   '<S1>/n-D Lookup Table5'
+   *   '<S2>/n-D Lookup Table5'
    */
   { -9.54360771F, -9.56074619F, -9.58442307F, -9.61566162F, -9.64627F, -9.65933F,
     -9.65943432F, -9.65955448F, -9.65951538F, -9.65952492F, -9.65937233F,
@@ -562,8 +570,10 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
     -0.379743129F, -0.26421988F, -0.169369593F, -0.0953929946F, -0.0424398966F,
     -0.0106180878F, -0.0F },
 
-  /* Computed Parameter: nDLookupTable4_tableData
-   * Referenced by: '<S1>/n-D Lookup Table4'
+  /* Pooled Parameter (Expression: AUMOVIO_outline_K1_x1)
+   * Referenced by:
+   *   '<S1>/n-D Lookup Table4'
+   *   '<S2>/n-D Lookup Table4'
    */
   { -29.9679508F, -30.1720905F, -30.4032536F, -30.6643486F, -30.9288273F,
     -31.0822277F, -31.0967903F, -31.1122208F, -31.1255589F, -31.1388626F,
@@ -783,7 +793,8 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
   /* Pooled Parameter (Expression: AUMOVIO_outline_trq_ref_dat)
    * Referenced by:
    *   '<S1>/n-D Lookup Table8'
-   *   '<S3>/n-D Lookup Table8'
+   *   '<S2>/n-D Lookup Table8'
+   *   '<S4>/n-D Lookup Table8'
    */
   { 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F,
     40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F,
@@ -903,7 +914,8 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
   /* Pooled Parameter (Expression: AUMOVIO_outline_trq_ref_dist)
    * Referenced by:
    *   '<S1>/n-D Lookup Table8'
-   *   '<S3>/n-D Lookup Table8'
+   *   '<S2>/n-D Lookup Table8'
+   *   '<S4>/n-D Lookup Table8'
    */
   { 0.0F, 0.00401195604F, 0.0160270315F, 0.0360138491F, 0.0639451146F,
     0.099804841F, 0.143579453F, 0.195255294F, 0.254818887F, 0.322256476F,
@@ -1088,7 +1100,8 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
   /* Pooled Parameter (Expression: SZEVOL_2_1_PESC1_MTPA_FW69_22_lim_trq)
    * Referenced by:
    *   '<S1>/1-D Lookup Table'
-   *   '<S3>/1-D Lookup Table'
+   *   '<S2>/1-D Lookup Table'
+   *   '<S4>/1-D Lookup Table'
    */
   { 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F,
     40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F,
@@ -1103,7 +1116,8 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
   /* Pooled Parameter (Expression: SZEVOL_2_1_PESC1_MTPA_FW69_22_lim_rpm)
    * Referenced by:
    *   '<S1>/1-D Lookup Table'
-   *   '<S3>/1-D Lookup Table'
+   *   '<S2>/1-D Lookup Table'
+   *   '<S4>/1-D Lookup Table'
    */
   { 0.0F, 7.74468851F, 15.489377F, 23.234066F, 30.978754F, 38.7234421F,
     46.468132F, 54.212822F, 61.9575081F, 69.7022F, 77.4468842F, 85.1915741F,
@@ -1118,7 +1132,8 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
   /* Pooled Parameter (Expression: AUMOVIO_outline_Spd_ts_Data)
    * Referenced by:
    *   '<S1>/n-D Lookup Table6'
-   *   '<S3>/n-D Lookup Table6'
+   *   '<S2>/n-D Lookup Table6'
+   *   '<S4>/n-D Lookup Table6'
    */
   { 0.0F, 0.0801872462F, 0.160061955F, 0.239625096F, 0.318977356F, 0.398194551F,
     0.477274776F, 0.556219697F, 0.635029137F, 0.713699877F, 0.792233646F,

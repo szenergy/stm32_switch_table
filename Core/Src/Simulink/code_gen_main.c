@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.19
+ * Model version                  : 1.21
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Tue Jun  2 09:58:58 2026
+ * C/C++ source code generated on : Tue Jun  2 21:25:43 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -18,6 +18,7 @@
 
 #include "code_gen_main.h"
 #include "automatic_strategy.h"
+#include "hybrid_automatic_strategy.h"
 #include "speed_hold.h"
 #include "switching_automatic_strategy.h"
 #include "rtwtypes.h"
@@ -150,6 +151,12 @@ void code_gen_main_step(void)
 
   /* End of Outputs for SubSystem: '<Root>/Automatic Strategy' */
 
+  /* Outputs for Atomic SubSystem: '<Root>/Hybrid' */
+  hybrid_automatic_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut_a,
+    &rtb_TorqueGain, &rtb_TorqueRef_k, &code_gen_main_DW.Hybrid);
+
+  /* End of Outputs for SubSystem: '<Root>/Hybrid' */
+
   /* Outputs for Atomic SubSystem: '<Root>/Speed Hold' */
   speed_hold(0.0F, 0.0F, &rtb_ThrottleOut_a, &rtb_TorqueGain,
              &code_gen_main_DW.SpeedHold);
@@ -170,6 +177,11 @@ void code_gen_main_initialize(void)
   automatic_strategy_Init(&code_gen_main_DW.AutomaticStrategy);
 
   /* End of SystemInitialize for SubSystem: '<Root>/Automatic Strategy' */
+
+  /* SystemInitialize for Atomic SubSystem: '<Root>/Hybrid' */
+  hybrid_automatic_strategy_Init(&code_gen_main_DW.Hybrid);
+
+  /* End of SystemInitialize for SubSystem: '<Root>/Hybrid' */
 }
 
 /* Model terminate function */

@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.19
+ * Model version                  : 1.21
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Tue Jun  2 09:58:58 2026
+ * C/C++ source code generated on : Tue Jun  2 21:25:43 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -46,13 +46,13 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
    *  Sum: '<S1>/Sum6'
    */
   rtb_Product5 = (rtu_Totaldiff + 107.0F) / 107.0F * look1_iflf_linlcpw
-    (rtu_Laptime, code_gen_main_ConstP.pooled1, code_gen_main_ConstP.pooled11,
+    (rtu_Laptime, code_gen_main_ConstP.pooled2, code_gen_main_ConstP.pooled14,
      1070U);
 
-  /* RelationalOperator: '<S4>/FixPt Relational Operator' incorporates:
-   *  UnitDelay: '<S4>/Delay Input1'
+  /* RelationalOperator: '<S5>/FixPt Relational Operator' incorporates:
+   *  UnitDelay: '<S5>/Delay Input1'
    *
-   * Block description for '<S4>/Delay Input1':
+   * Block description for '<S5>/Delay Input1':
    *
    *  Store in Global RAM
    */
@@ -72,7 +72,7 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
   if (rtu_RPM <= 379.489746F) {
     /* Lookup_n-D: '<S1>/n-D Lookup Table8' */
     *rty_TorqueRef = look1_iflf_linlcpw(rtu_DistanceInm,
-      code_gen_main_ConstP.pooled3, code_gen_main_ConstP.pooled2, 1070U);
+      code_gen_main_ConstP.pooled6, code_gen_main_ConstP.pooled5, 1070U);
 
     /* Switch: '<S1>/Switch2' incorporates:
      *  Constant: '<S1>/Constant'
@@ -92,15 +92,13 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
        *  Sum: '<S1>/Sum3'
        */
       *rty_TorqueGain = ((rtb_Product5 - rtu_SpeedInms) * look1_iflf_linlcpw
-                         (rtu_Laptime, code_gen_main_ConstP.pooled1,
-                          code_gen_main_ConstP.nDLookupTable4_tableData, 1070U)
-                         + (localDW->DiscreteTimeIntegrator_DSTATE -
-                            rtu_DistanceInm) * look1_iflf_linlcpw(rtu_Laptime,
-        code_gen_main_ConstP.pooled1,
-        code_gen_main_ConstP.nDLookupTable5_tableData, 1070U)) +
-        look1_iflf_linlcpw(rtu_Laptime, code_gen_main_ConstP.pooled1,
-                           code_gen_main_ConstP.nDLookupTable3_tableData, 1070U)
-        * 0.0F;
+                         (rtu_Laptime, code_gen_main_ConstP.pooled2,
+                          code_gen_main_ConstP.pooled4, 1070U) +
+                         (localDW->DiscreteTimeIntegrator_DSTATE -
+                          rtu_DistanceInm) * look1_iflf_linlcpw(rtu_Laptime,
+        code_gen_main_ConstP.pooled2, code_gen_main_ConstP.pooled3, 1070U)) +
+        look1_iflf_linlcpw(rtu_Laptime, code_gen_main_ConstP.pooled2,
+                           code_gen_main_ConstP.pooled1, 1070U) * 0.0F;
       rtb_Sum2 = *rty_TorqueGain;
     } else {
       rtb_Sum2 = 0.0F;
@@ -112,8 +110,8 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
     rtb_Sum2 = *rty_TorqueRef - rtb_Sum2;
 
     /* Lookup_n-D: '<S1>/1-D Lookup Table' */
-    rtb_uDLookupTable = look1_iflf_binlxpw(rtu_RPM, code_gen_main_ConstP.pooled5,
-      code_gen_main_ConstP.pooled4, 49U);
+    rtb_uDLookupTable = look1_iflf_binlxpw(rtu_RPM, code_gen_main_ConstP.pooled8,
+      code_gen_main_ConstP.pooled7, 49U);
 
     /* Switch: '<S1>/Switch1' incorporates:
      *  RelationalOperator: '<S1>/LessThanOrEqual1'
@@ -149,9 +147,9 @@ void automatic_strategy(real32_T rtu_SpeedInms, real32_T rtu_DistanceInm,
 
   /* End of Saturate: '<S1>/Saturation' */
 
-  /* Update for UnitDelay: '<S4>/Delay Input1'
+  /* Update for UnitDelay: '<S5>/Delay Input1'
    *
-   * Block description for '<S4>/Delay Input1':
+   * Block description for '<S5>/Delay Input1':
    *
    *  Store in Global RAM
    */
