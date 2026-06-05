@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.21
+ * Model version                  : 1.25
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Tue Jun  2 21:25:43 2026
+ * C/C++ source code generated on : Fri Jun  5 09:51:16 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -26,6 +26,10 @@ extern real32_T look1_iflf_linlcpw(real32_T u0, const real32_T bp0[], const
   real32_T table[], uint32_T maxIndex);
 extern real32_T look1_iflf_binlxpw(real32_T u0, const real32_T bp0[], const
   real32_T table[], uint32_T maxIndex);
+extern uint32_T plook_u32f_linckan(real32_T u, const real32_T bp[], uint32_T
+  maxIndex);
+extern uint32_T linsearch_u32f(real32_T u, const real32_T bp[], uint32_T
+  startIndex);
 
 #endif                                 /* code_gen_main_private_h_ */
 

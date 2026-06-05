@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.21
+ * Model version                  : 1.25
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Tue Jun  2 21:25:43 2026
+ * C/C++ source code generated on : Fri Jun  5 09:51:16 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -17,10 +17,9 @@
  */
 
 #include "code_gen_main.h"
-#include "automatic_strategy.h"
-#include "hybrid_automatic_strategy.h"
+#include "ltv_lqr_strategy.h"
 #include "speed_hold.h"
-#include "switching_automatic_strategy.h"
+#include "switching_lqr_strategy.h"
 #include "rtwtypes.h"
 #include "code_gen_main_private.h"
 
@@ -137,51 +136,83 @@ real32_T look1_iflf_binlxpw(real32_T u0, const real32_T bp0[], const real32_T
   return (table[iLeft + 1U] - yL_0d0) * frac + yL_0d0;
 }
 
+uint32_T plook_u32f_linckan(real32_T u, const real32_T bp[], uint32_T maxIndex)
+{
+  uint32_T bpIndex;
+
+  /* Prelookup - Index only
+     Index Search method: 'linear'
+     Interpolation method: 'Use nearest'
+     Extrapolation method: 'Clip'
+     Use previous index: 'off'
+     Use last breakpoint for index at or above upper limit: 'on'
+     Remove protection against out-of-range input in generated code: 'off'
+   */
+  if (u <= bp[0U]) {
+    bpIndex = 0U;
+  } else if (u < bp[maxIndex]) {
+    bpIndex = linsearch_u32f(u, bp, maxIndex >> 1U);
+    if ((bpIndex < maxIndex) && (bp[bpIndex + 1U] - u <= u - bp[bpIndex])) {
+      bpIndex++;
+    }
+  } else {
+    bpIndex = maxIndex;
+  }
+
+  return bpIndex;
+}
+
+uint32_T linsearch_u32f(real32_T u, const real32_T bp[], uint32_T startIndex)
+{
+  uint32_T bpIndex;
+
+  /* Linear Search */
+  for (bpIndex = startIndex; u < bp[bpIndex]; bpIndex--) {
+  }
+
+  while (u >= bp[bpIndex + 1U]) {
+    bpIndex++;
+  }
+
+  return bpIndex;
+}
+
 /* Model step function */
 void code_gen_main_step(void)
 {
+  real32_T rtb_DiscreteTimeIntegrator;
+  real32_T rtb_Product5;
+  real32_T rtb_Switch2;
   real32_T rtb_ThrottleOut_a;
   real32_T rtb_TorqueGain;
-  real32_T rtb_TorqueRef_k;
 
-  /* Outputs for Atomic SubSystem: '<Root>/Automatic Strategy' */
-  automatic_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut_a,
-                     &rtb_TorqueGain, &rtb_TorqueRef_k,
-                     &code_gen_main_DW.AutomaticStrategy);
+  /* Outputs for Atomic SubSystem: '<Root>/LTV - LQR Strategy' */
+  ltv_lqr_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut_a,
+                   &rtb_TorqueGain, &rtb_Switch2, &rtb_Product5,
+                   &rtb_DiscreteTimeIntegrator, &code_gen_main_DW.LTVLQRStrategy);
 
-  /* End of Outputs for SubSystem: '<Root>/Automatic Strategy' */
-
-  /* Outputs for Atomic SubSystem: '<Root>/Hybrid' */
-  hybrid_automatic_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut_a,
-    &rtb_TorqueGain, &rtb_TorqueRef_k, &code_gen_main_DW.Hybrid);
-
-  /* End of Outputs for SubSystem: '<Root>/Hybrid' */
+  /* End of Outputs for SubSystem: '<Root>/LTV - LQR Strategy' */
 
   /* Outputs for Atomic SubSystem: '<Root>/Speed Hold' */
-  speed_hold(0.0F, 0.0F, &rtb_ThrottleOut_a, &rtb_TorqueGain,
+  speed_hold(0.0F, 0.0F, &rtb_ThrottleOut_a, &rtb_Switch2,
              &code_gen_main_DW.SpeedHold);
 
   /* End of Outputs for SubSystem: '<Root>/Speed Hold' */
 
-  /* Outputs for Atomic SubSystem: '<Root>/Switching Automatic Strategy' */
-  switching_automatic_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut_a,
-    &rtb_TorqueGain, &rtb_TorqueRef_k);
+  /* Outputs for Atomic SubSystem: '<Root>/Switching LQR Strategy' */
+  switching_lqr_strategy(0.0F, 0.0F, 0.0F, &rtb_ThrottleOut_a, &rtb_TorqueGain,
+    &rtb_Switch2);
 
-  /* End of Outputs for SubSystem: '<Root>/Switching Automatic Strategy' */
+  /* End of Outputs for SubSystem: '<Root>/Switching LQR Strategy' */
 }
 
 /* Model initialize function */
 void code_gen_main_initialize(void)
 {
-  /* SystemInitialize for Atomic SubSystem: '<Root>/Automatic Strategy' */
-  automatic_strategy_Init(&code_gen_main_DW.AutomaticStrategy);
+  /* SystemInitialize for Atomic SubSystem: '<Root>/LTV - LQR Strategy' */
+  ltv_lqr_strategy_Init(&code_gen_main_DW.LTVLQRStrategy);
 
-  /* End of SystemInitialize for SubSystem: '<Root>/Automatic Strategy' */
-
-  /* SystemInitialize for Atomic SubSystem: '<Root>/Hybrid' */
-  hybrid_automatic_strategy_Init(&code_gen_main_DW.Hybrid);
-
-  /* End of SystemInitialize for SubSystem: '<Root>/Hybrid' */
+  /* End of SystemInitialize for SubSystem: '<Root>/LTV - LQR Strategy' */
 }
 
 /* Model terminate function */

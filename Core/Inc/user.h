@@ -23,8 +23,8 @@
 #define LAP_BTN_MIN_DISTANCE (float)50
 
 // Throttle pedal limits
-#define POT_ZERO   (float)2050
-#define POT_MAX    (float)2300
+#define POT_ZERO   (float)2150
+#define POT_MAX    (float)2350
 
 // This number is multiplied by the wheel RPM to get the vehicle speed in km/h
 #define SPEED_MULT_FACTOR (float)0.10376
@@ -49,7 +49,7 @@
 // The following are debug options.
 // Uncomment (remove the // from the start) the defines to enable them.
 //#define DEBUG_LEDS            // Debug LEDs on the panel's side
-#define SLEEP_DEBUG_PIN       // Output sleep/awake state on PC12 pin
+//#define SLEEP_DEBUG_PIN       // Output sleep/awake state on PC12 pin
 //#define WIPER_SWEEP_DEBUG     // Moves wiper PWM from 0% fill to 100% slowly
 //#define UART_DEBUG            // Sends some debug values on the UART
 
