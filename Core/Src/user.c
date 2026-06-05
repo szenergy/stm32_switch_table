@@ -709,7 +709,8 @@ void User_Loop() {
 		_Send_MC_Command_CAN(drive_state.torque_ref_out);
 	}
 
-//	_Send_Auto_Strat_Debug_CAN();
+	_Send_VCU_Calculated_State_CAN();
+	_Send_Simulink_Debug_CAN();
 
 	if (wiper_state.ARR++ >= WIPER_PERIOD) {
 		_Wiper_Tick(switch_table_state.A.WIPER);

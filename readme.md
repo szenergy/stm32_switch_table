@@ -20,15 +20,15 @@ All modes, including the pedal, are rate limited to prevent sudden changes in ac
 This table describes the drive modes and their settings:
 
 | Setting / Mode | A: Manual     | B: Manual Strategy | C: Automatic Strategy | D: Speed Hold |
-| -------------- | ------------- | ------------------ | --------------------- | -------------------------------- |
-| 1              | 80% throttle  | Z22 ?              | LTV - LQR                | 5 km/h                           |
-| 2              | 90% throttle  | Z24 ?              | LQR + Switching             | 10 km/h                          |
-| 3              | 100% throttle | Aumovio Z22      | Hybrid                     | 15 km/h                          |
-| 4              | -             | -                  | -                     | 20 km/h                          |
-| 5              | -             | -                  | -                     | 25 km/h                          |
-| 6              | -             | -                  | -                     | 30 km/h                          |
-| 7              | -             | -                  | -                     | 35 km/h                          |
-| 8              | -             | -                  | -                     | 40 km/h                          |
+| -------------- | ------------- | ------------------ | --------------------- | ------------- |
+| 1              | 80% throttle  | Z22 ?              | LTV - LQR             | 5 km/h        |
+| 2              | 90% throttle  | Z24 ?              | LQR + Switching       | 10 km/h       |
+| 3              | 100% throttle | Aumovio Z22        | Hybrid                | 15 km/h       |
+| 4              | -             | -                  | -                     | 20 km/h       |
+| 5              | -             | -                  | -                     | 25 km/h       |
+| 6              | -             | -                  | -                     | 30 km/h       |
+| 7              | -             | -                  | -                     | 35 km/h       |
+| 8              | -             | -                  | -                     | 40 km/h       |
 
 ### Manual Mode
 
@@ -73,14 +73,28 @@ Here it is described in detail how the various peripherals of the `STM32F412RET6
 
 The CAN2 peripheral is connected to the ESDCAN transciever then to the vehicle's CAN bus network. There are many devices and messages on the bus, but the switch table only interacts with a few of them.
 
-| Direction | ID    | Name                         | Description                               |
-| --------- | ----- | ---------------------------- | ----------------------------------------- |
-| Received  | 0x190 | Steering_Wheel               | Button and switch states                  |
-| Received  | 0x123 | Encoder_Messages             | Wheel RPM measurement                     |
-| Sent      | 0x129 | VCU_Status_Message           | Switch positions and filtered throttle    |
-| Sent      | 0xA51 | VESC_Relativ_Current_Command | Torque reference for the motor controller |
-| Sent      | 0x150 | Auto_Strat_Debug_1           | Lap number, time, distance and drive mode |
-| Sent      | 0x151 | Auto_Strat_Debug_2           | Simulink model debug values               |
+| Direction | ID    | Name                         | Description                                |
+| --------- | ----- | ---------------------------- | ------------------------------------------ |
+| Received  | 0x190 | Steering_Wheel               | Button and switch states                   |
+| Received  | 0x123 | Encoder_Messages             | Wheel RPM measurement                      |
+| Sent      | 0xA51 | VESC_Relativ_Current_Command | Torque reference for the motor controller  |
+| Sent      | 0x129 | VCU_Status_Message           | Switch positions and filtered throttle     |
+| Sent      | 0x150 | VCU_Calculated_State         | Lap number, time, distance and drive state |
+| Sent      | 0x151 | VCU_Simulink_Debug           | Simulink model debug values                |
+
+Further details on these CAN bus messages can be found in the current [CAN dbc file](https://github.com/szenergy/SZEmission_CANdb). Two important signals to note are in the **VCU_Calculated_State** message for drive mode and setting. Here is an extended version of the drive mode and setting table that shows what the values on the CAN bus mean, where the columns represent the drive modes and the rows are the settings within those modes:
+
+| Setting / Mode | 0 : Neutral | 1 : Manual     | 2 : Manual Strategy | 3 : Automatic Strategy | 4 : Speed Hold |
+| -------------- | ----------- | -------------- | ------------------- | ---------------------- | -------------- |
+| 0              | Neutral     | Pedal override | -                   | -                      | -              |
+| 1              | -           | 80% throttle   | Z22 ?               | LTV - LQR              | 5 km/h         |
+| 2              | -           | 90% throttle   | Z24 ?               | LQR + Switching        | 10 km/h        |
+| 3              | -           | 100% throttle  | Aumovio Z22         | Hybrid                 | 15 km/h        |
+| 4              | -           | -              | -                   | -                      | 20 km/h        |
+| 5              | -           | -              | -                   | -                      | 25 km/h        |
+| 6              | -           | -              | -                   | -                      | 30 km/h        |
+| 7              | -           | -              | -                   | -                      | 35 km/h        |
+| 8              | -           | -              | -                   | -                      | 40 km/h        |
 
 #### Timers
 
