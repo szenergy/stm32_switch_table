@@ -210,6 +210,7 @@ void _Update_Vehicle_State() {
 	vehicle_state.distance += vehicle_state.speed / 72;
 	if (vehicle_state.lap_number == 0) {
 		vehicle_state.laptime = OPTIMAL_LAP;
+		vehicle_state.total_time_diff = 0;
 	} else {
 		vehicle_state.laptime += (float)0.05;
 	}
@@ -528,17 +529,17 @@ void _Send_VCU_Calculated_State_CAN() {
 
 	data_0x150[0] = vehicle_state.lap_number;
 
-	uint32_t lap_time_buffer = vehicle_state.laptime * 100;
+	uint32_t lap_time_buffer = vehicle_state.laptime * 100.0F;
 	data_0x150[1] = lap_time_buffer >> 8;
 	data_0x150[2] = lap_time_buffer;
 
-	uint32_t distance_buffer = vehicle_state.distance * 20;
+	uint32_t distance_buffer = vehicle_state.distance * 20.0F;
 	data_0x150[3] = distance_buffer >> 8;
 	data_0x150[4] = distance_buffer;
 
 	data_0x150[5] = drive_state.mode << 4 | drive_state.setting;
 
-	uint32_t total_time_diff_buffer = vehicle_state.total_time_diff * 100 + 320;
+	int16_t total_time_diff_buffer = vehicle_state.total_time_diff * 100.0F;
 	data_0x150[6] = total_time_diff_buffer >> 8;
 	data_0x150[7] = total_time_diff_buffer;
 
@@ -548,19 +549,19 @@ void _Send_VCU_Calculated_State_CAN() {
 void _Send_Simulink_Debug_CAN() {
 	uint8_t data_0x151[8];
 
-	uint32_t torque_gain_buffer = simulink_debug.torque_gain * 100 + 320;
+	int32_t torque_gain_buffer = simulink_debug.torque_gain * 100.0F;
 	data_0x151[0] = torque_gain_buffer >> 8;
 	data_0x151[1] = torque_gain_buffer;
 
-	uint32_t torque_base_buffer = simulink_debug.torque_base * 100 + 320;
+	int32_t torque_base_buffer = simulink_debug.torque_base * 100.0F;
 	data_0x151[2] = torque_base_buffer >> 8;
 	data_0x151[3] = torque_base_buffer;
 
-	uint32_t speed_ref_buffer = simulink_debug.speed_ref * 1000;
+	uint32_t speed_ref_buffer = simulink_debug.speed_ref * 1000.0F;
 	data_0x151[4] = speed_ref_buffer >> 8;
 	data_0x151[5] = speed_ref_buffer;
 
-	uint32_t distance_ref_buffer = simulink_debug.distance_ref * 200;
+	uint32_t distance_ref_buffer = simulink_debug.distance_ref * 200.0F;
 	data_0x151[6] = distance_ref_buffer >> 8;
 	data_0x151[7] = distance_ref_buffer;
 
