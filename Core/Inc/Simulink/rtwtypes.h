@@ -1,15 +1,14 @@
 /*
- * Academic License - for use in teaching, academic research, and meeting
- * course requirements at degree granting institutions only.  Not for
- * government, commercial, or other organizational use.
+ * Trial License - for use to evaluate programs for possible purchase as
+ * an end-user only.
  *
  * File: rtwtypes.h
  *
- * Code generated for Simulink model 'auto_strat_C_generate'.
+ * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.17
+ * Model version                  : 1.25
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Thu May 28 16:07:52 2026
+ * C/C++ source code generated on : Fri Jun  5 09:51:16 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M

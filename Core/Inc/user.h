@@ -14,7 +14,7 @@
 
 // *** Definitions ***
 
-// Optimal lap time for the automatic strategy
+// Optimal lap time in seconds, used for strategy
 #define OPTIMAL_LAP (float)107
 
 // These variables are used for lap button protection
@@ -22,14 +22,11 @@
 #define LAP_BTN_MIN_TIME (float)5
 #define LAP_BTN_MIN_DISTANCE (float)50
 
-// This maps reference speeds in km/h for the speed hold mode to the setting selector switch positions
-#define SPEED_ROT_MAP (uint8_t[]){[ROT_1] = 5, [ROT_2] = 10, [ROT_3] = 15, [ROT_4] = 20, [ROT_5] = 25, [ROT_6] = 30, [ROT_7] = 35, [ROT_8] = 40}
-
 // Throttle pedal limits
-#define POT_ZERO   (float)2050
-#define POT_MAX    (float)2300
+#define POT_ZERO   (float)2150
+#define POT_MAX    (float)2350
 
-// Speed calculation from wheel RPM in km/h
+// This number is multiplied by the wheel RPM to get the vehicle speed in km/h
 #define SPEED_MULT_FACTOR (float)0.10376
 
 // Rate limits for changes in torque per 50 milliseconds
@@ -39,7 +36,7 @@
 // The time between wipes is in ticks, each tick is equal to 50 milliseconds
 #define WIPER_PERIOD   (uint16_t)25     // 25 => 1.25s
 // Configure the wiper positions
-// For the current servo: H-SPEED HSX181, the PWM region
+// The current servo is an H-SPEED HSX181, its PWM region
 // starts at 0.5ms = 1000 counts, and ends at 2.8ms = 5500 counts at 50Hz
 #define WIPER_LEFT     (uint16_t)4600
 #define WIPER_RIGHT    (uint16_t)4000
@@ -63,18 +60,24 @@
 
 
 // *** Global variables ***
+
+
 extern uint16_t throttle_adc_buffer[10];
 
 
 // *** User Functions ***
+
+
 void User_Init(CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UART_HandleTypeDef *uart_ptr);
 void User_Loop();
 void Debug_Msg(char *key, uint32_t value);
 
 
 // *** Error handling ***
+
+
 typedef enum {
-	UERR_UNKNOWN,
+	UERR_UNKNOWN = 1,
 	UERR_CAN_FILTER_CONFIG,
 	UERR_CAN_START,
 	UERR_CAN_MSG_SEND,
@@ -88,6 +91,7 @@ void User_Error_Handler(USER_ERROR err, uint8_t fatal);
 
 
 // *** Data structures and types ***
+
 
 typedef enum {
 	DM_NEUTRAL,
@@ -155,6 +159,6 @@ typedef enum {
 	ROT_8 = 64
 } ROT_POS_ENUM;
 
-
+#define ROT_TO_INT (uint8_t[]){[ROT_1] = 1, [ROT_2] = 2, [ROT_3] = 3, [ROT_4] = 4, [ROT_5] = 5, [ROT_6] = 6, [ROT_7] = 7, [ROT_8] = 8}
 
 #endif /* INC_USER_H_ */
