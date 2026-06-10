@@ -242,6 +242,37 @@ void _Calculate_MC_Ref() {
 		return;
 	}
 
+	float ltv_lqr_torque_ref_out = 0;
+	float ltv_lqr_torque_base = 0;
+	float ltv_lqr_torque_gain = 0;
+	float ltv_lqr_speed_ref = 0;
+	float ltv_lqr_distance_ref = 0;
+	ltv_lqr_strategy(
+		vehicle_state.speed / 3.6F,
+		vehicle_state.distance,
+		vehicle_state.laptime,
+		vehicle_state.wheel_rpm,
+		vehicle_state.total_time_diff,
+		&ltv_lqr_torque_ref_out,
+		&ltv_lqr_torque_gain,
+		&ltv_lqr_torque_base,
+		&ltv_lqr_speed_ref,
+		&ltv_lqr_distance_ref,
+		&ltv_lqr_internal_state
+	);
+
+	float switching_lqr_torque_ref_out = 0;
+	float switching_lqr_torque_base = 0;
+	float switching_lqr_torque_gain = 0;
+	switching_lqr_strategy(
+		vehicle_state.distance,
+		vehicle_state.wheel_rpm,
+		vehicle_state.total_time_diff,
+		&switching_lqr_torque_ref_out,
+		&switching_lqr_torque_gain,
+		&switching_lqr_torque_base
+	);
+
 	switch (steering_wheel_state.ROT3) {
 		case ROT_1:
 			drive_state.mode = DM_MANUAL;
@@ -291,38 +322,6 @@ void _Calculate_MC_Ref() {
 			break;
 		case ROT_3:
 			drive_state.mode = DM_AUTOMATIC_STRATEGY;
-
-			float ltv_lqr_torque_ref_out = 0;
-			float ltv_lqr_torque_base = 0;
-			float ltv_lqr_torque_gain = 0;
-			float ltv_lqr_speed_ref = 0;
-			float ltv_lqr_distance_ref = 0;
-			ltv_lqr_strategy(
-				vehicle_state.speed / 3.6F,
-				vehicle_state.distance,
-				vehicle_state.laptime,
-				vehicle_state.wheel_rpm,
-				vehicle_state.total_time_diff,
-				&ltv_lqr_torque_ref_out,
-				&ltv_lqr_torque_gain,
-				&ltv_lqr_torque_base,
-				&ltv_lqr_speed_ref,
-				&ltv_lqr_distance_ref,
-				&ltv_lqr_internal_state
-			);
-
-			float switching_lqr_torque_ref_out = 0;
-			float switching_lqr_torque_base = 0;
-			float switching_lqr_torque_gain = 0;
-			switching_lqr_strategy(
-				vehicle_state.distance,
-				vehicle_state.wheel_rpm,
-				vehicle_state.total_time_diff,
-				&switching_lqr_torque_ref_out,
-				&switching_lqr_torque_gain,
-				&switching_lqr_torque_base
-			);
-
 			switch (steering_wheel_state.ROT1) {
 				case ROT_1:
 					drive_state.setting = 1;
@@ -351,6 +350,29 @@ void _Calculate_MC_Ref() {
 					&simulink_debug.torque_gain,
 					&speed_hold_internal_state
 			);
+			break;
+		case ROT_5:
+			switch (steering_wheel_state.ROT1) {
+				case ROT_1:
+					if (vehicle_state.lap_number == 1) {
+						drive_state.mode = DM_MANUAL_STRATEGY;
+						drive_state.setting = 3;
+						if (vehicle_state.wheel_rpm < 224) {
+							drive_state.torque_ref_out = 1;
+						} else {
+							drive_state.torque_ref_out = (float)0.332217618;
+						}
+					} else {
+						drive_state.mode = DM_AUTOMATIC_STRATEGY;
+						drive_state.setting = 1;
+						simulink_debug.torque_base = ltv_lqr_torque_base;
+						simulink_debug.torque_gain = ltv_lqr_torque_gain;
+						simulink_debug.speed_ref = ltv_lqr_speed_ref;
+						simulink_debug.distance_ref = ltv_lqr_distance_ref;
+						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
+					}
+					break;
+			}
 			break;
 	}
 
