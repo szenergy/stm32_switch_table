@@ -293,29 +293,15 @@ void _Calculate_MC_Ref() {
 		case ROT_2:
 			drive_state.mode = DM_MANUAL_STRATEGY;
 			switch (steering_wheel_state.ROT1) {
-				case ROT_1:
-					drive_state.setting = 1;
-					if (vehicle_state.wheel_rpm < 116) {
-						drive_state.torque_ref_out = 1;
-					} else {
-						drive_state.torque_ref_out = LUT_Z22[(uint16_t)vehicle_state.speed];
-					}
-					break;
-				case ROT_2:
-					drive_state.setting = 2;
-					if (vehicle_state.wheel_rpm < 221) {
-						drive_state.torque_ref_out = 1;
-					} else {
-						drive_state.torque_ref_out = LUT_Z24[(uint16_t)vehicle_state.speed];
-					}
-					break;
-				case ROT_3:
-					drive_state.setting = 3; // Aumovio CCW strat
+				case ROT_1:  // Aumovio test track
+					drive_state.setting = 3;
 					if (vehicle_state.wheel_rpm < 224) {
 						drive_state.torque_ref_out = 1;
 					} else {
 						drive_state.torque_ref_out = (float)0.332217618;
 					}
+					break;
+				case ROT_2: // Silesia Ring
 					break;
 			}
 			break;
@@ -352,7 +338,7 @@ void _Calculate_MC_Ref() {
 			break;
 		case ROT_5:
 			switch (steering_wheel_state.ROT1) {
-				case ROT_1:
+				case ROT_1: // Aumovio test track
 					if (vehicle_state.lap_number == 2) {
 						vehicle_state.total_time_diff = 0;
 					}
@@ -373,6 +359,8 @@ void _Calculate_MC_Ref() {
 						simulink_debug.distance_ref = ltv_lqr_distance_ref;
 						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
 					}
+					break;
+				case ROT_2: // Silesia Ring
 					break;
 			}
 			break;
