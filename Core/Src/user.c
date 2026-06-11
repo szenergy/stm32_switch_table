@@ -210,7 +210,6 @@ void _Update_Vehicle_State() {
 	vehicle_state.distance += vehicle_state.speed / 72;
 	if (vehicle_state.lap_number == 0) {
 		vehicle_state.laptime = OPTIMAL_LAP;
-		vehicle_state.total_time_diff = 0;
 	} else {
 		vehicle_state.laptime += (float)0.05;
 	}
@@ -354,7 +353,10 @@ void _Calculate_MC_Ref() {
 		case ROT_5:
 			switch (steering_wheel_state.ROT1) {
 				case ROT_1:
-					if (vehicle_state.lap_number == 1) {
+					if (vehicle_state.lap_number == 2) {
+						vehicle_state.total_time_diff = 0;
+					}
+					if (vehicle_state.lap_number <= 1) {
 						drive_state.mode = DM_MANUAL_STRATEGY;
 						drive_state.setting = 3;
 						if (vehicle_state.wheel_rpm < 224) {
