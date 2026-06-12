@@ -210,7 +210,6 @@ void _Update_Vehicle_State() {
 	vehicle_state.distance += vehicle_state.speed / 72;
 	if (vehicle_state.lap_number == 0) {
 		vehicle_state.laptime = OPTIMAL_LAP;
-		vehicle_state.total_time_diff = 0;
 	} else {
 		vehicle_state.laptime += (float)0.05;
 	}
@@ -242,6 +241,37 @@ void _Calculate_MC_Ref() {
 		return;
 	}
 
+	float ltv_lqr_torque_ref_out = 0;
+	float ltv_lqr_torque_base = 0;
+	float ltv_lqr_torque_gain = 0;
+	float ltv_lqr_speed_ref = 0;
+	float ltv_lqr_distance_ref = 0;
+	ltv_lqr_strategy(
+		vehicle_state.speed / 3.6F,
+		vehicle_state.distance,
+		vehicle_state.laptime,
+		vehicle_state.wheel_rpm,
+		vehicle_state.total_time_diff,
+		&ltv_lqr_torque_ref_out,
+		&ltv_lqr_torque_gain,
+		&ltv_lqr_torque_base,
+		&ltv_lqr_speed_ref,
+		&ltv_lqr_distance_ref,
+		&ltv_lqr_internal_state
+	);
+
+	float switching_lqr_torque_ref_out = 0;
+	float switching_lqr_torque_base = 0;
+	float switching_lqr_torque_gain = 0;
+	switching_lqr_strategy(
+		vehicle_state.distance,
+		vehicle_state.wheel_rpm,
+		vehicle_state.total_time_diff,
+		&switching_lqr_torque_ref_out,
+		&switching_lqr_torque_gain,
+		&switching_lqr_torque_base
+	);
+
 	switch (steering_wheel_state.ROT3) {
 		case ROT_1:
 			drive_state.mode = DM_MANUAL;
@@ -263,66 +293,20 @@ void _Calculate_MC_Ref() {
 		case ROT_2:
 			drive_state.mode = DM_MANUAL_STRATEGY;
 			switch (steering_wheel_state.ROT1) {
-				case ROT_1:
-					drive_state.setting = 1;
-					if (vehicle_state.wheel_rpm < 116) {
-						drive_state.torque_ref_out = 1;
-					} else {
-						drive_state.torque_ref_out = LUT_Z22[(uint16_t)vehicle_state.speed];
-					}
-					break;
-				case ROT_2:
-					drive_state.setting = 2;
-					if (vehicle_state.wheel_rpm < 221) {
-						drive_state.torque_ref_out = 1;
-					} else {
-						drive_state.torque_ref_out = LUT_Z24[(uint16_t)vehicle_state.speed];
-					}
-					break;
-				case ROT_3:
-					drive_state.setting = 3; // Aumovio CCW strat
+				case ROT_1:  // Aumovio test track
+					drive_state.setting = 3;
 					if (vehicle_state.wheel_rpm < 224) {
 						drive_state.torque_ref_out = 1;
 					} else {
 						drive_state.torque_ref_out = (float)0.332217618;
 					}
 					break;
+				case ROT_2: // Silesia Ring
+					break;
 			}
 			break;
 		case ROT_3:
 			drive_state.mode = DM_AUTOMATIC_STRATEGY;
-
-			float ltv_lqr_torque_ref_out = 0;
-			float ltv_lqr_torque_base = 0;
-			float ltv_lqr_torque_gain = 0;
-			float ltv_lqr_speed_ref = 0;
-			float ltv_lqr_distance_ref = 0;
-			ltv_lqr_strategy(
-				vehicle_state.speed / 3.6F,
-				vehicle_state.distance,
-				vehicle_state.laptime,
-				vehicle_state.wheel_rpm,
-				vehicle_state.total_time_diff,
-				&ltv_lqr_torque_ref_out,
-				&ltv_lqr_torque_gain,
-				&ltv_lqr_torque_base,
-				&ltv_lqr_speed_ref,
-				&ltv_lqr_distance_ref,
-				&ltv_lqr_internal_state
-			);
-
-			float switching_lqr_torque_ref_out = 0;
-			float switching_lqr_torque_base = 0;
-			float switching_lqr_torque_gain = 0;
-			switching_lqr_strategy(
-				vehicle_state.distance,
-				vehicle_state.wheel_rpm,
-				vehicle_state.total_time_diff,
-				&switching_lqr_torque_ref_out,
-				&switching_lqr_torque_gain,
-				&switching_lqr_torque_base
-			);
-
 			switch (steering_wheel_state.ROT1) {
 				case ROT_1:
 					drive_state.setting = 1;
@@ -351,6 +335,34 @@ void _Calculate_MC_Ref() {
 					&simulink_debug.torque_gain,
 					&speed_hold_internal_state
 			);
+			break;
+		case ROT_5:
+			switch (steering_wheel_state.ROT1) {
+				case ROT_1: // Aumovio test track
+					if (vehicle_state.lap_number == 2) {
+						vehicle_state.total_time_diff = 0;
+					}
+					if (vehicle_state.lap_number <= 1) {
+						drive_state.mode = DM_MANUAL_STRATEGY;
+						drive_state.setting = 3;
+						if (vehicle_state.wheel_rpm < 224) {
+							drive_state.torque_ref_out = 1;
+						} else {
+							drive_state.torque_ref_out = (float)0.332217618;
+						}
+					} else {
+						drive_state.mode = DM_AUTOMATIC_STRATEGY;
+						drive_state.setting = 1;
+						simulink_debug.torque_base = ltv_lqr_torque_base;
+						simulink_debug.torque_gain = ltv_lqr_torque_gain;
+						simulink_debug.speed_ref = ltv_lqr_speed_ref;
+						simulink_debug.distance_ref = ltv_lqr_distance_ref;
+						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
+					}
+					break;
+				case ROT_2: // Silesia Ring
+					break;
+			}
 			break;
 	}
 
@@ -618,7 +630,7 @@ void _Wiper_Tick(uint8_t wiper_switch) {
 		break;
 #ifdef WIPER_SWEEP_DEBUG
 	case 2:
-		for (uint16_t i = 0; i < WIPER_TIM_ARR-20; i+=20){
+		for (uint16_t i = 0; i < 40000-20; i+=20){
 			if (HAL_GPIO_ReadPin(Wiper_switch_GPIO_Port, Wiper_switch_Pin) == GPIO_PIN_RESET) break;
 			_usr_wiper_pwm->Instance->CCR1 = i;
 #ifdef UART_DEBUG

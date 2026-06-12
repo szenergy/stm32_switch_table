@@ -19,16 +19,16 @@ All modes, including the pedal, are rate limited to prevent sudden changes in ac
 
 This table describes the drive modes and their settings:
 
-| Setting / Mode | A: Manual     | B: Manual Strategy | C: Automatic Strategy | D: Speed Hold |
-| -------------- | ------------- | ------------------ | --------------------- | ------------- |
-| 1              | 80% throttle  | Z22 ?              | LTV - LQR             | 5 km/h        |
-| 2              | 90% throttle  | Z24 ?              | LQR + Switching       | 10 km/h       |
-| 3              | 100% throttle | Aumovio Z22        | Hybrid                | 15 km/h       |
-| 4              | -             | -                  | -                     | 20 km/h       |
-| 5              | -             | -                  | -                     | 25 km/h       |
-| 6              | -             | -                  | -                     | 30 km/h       |
-| 7              | -             | -                  | -                     | 35 km/h       |
-| 8              | -             | -                  | -                     | 40 km/h       |
+| Setting / Mode | A: Manual     | B: Manual Strategy | C: Automatic Strategy | D: Speed Hold | E: Race modes |
+| -------------- | ------------- | ------------------ | --------------------- | ------------- | ------------- |
+| 1              | 80% throttle  | Aumovio Z22        | LTV - LQR             | 5 km/h        | Aumovio       |
+| 2              | 90% throttle  | Silesia Ring Z22   | LQR + Switching       | 10 km/h       | Silesia Ring  |
+| 3              | 100% throttle | -                  | -                     | 15 km/h       | -             |
+| 4              | -             | -                  | -                     | 20 km/h       | -             |
+| 5              | -             | -                  | -                     | 25 km/h       | -             |
+| 6              | -             | -                  | -                     | 30 km/h       | -             |
+| 7              | -             | -                  | -                     | 35 km/h       | -             |
+| 8              | -             | -                  | -                     | 40 km/h       | -             |
 
 ### Manual Mode
 
@@ -45,6 +45,10 @@ As the name suggests, in this mode the switch table calculates takes into consid
 ### Speed Hold Mode
 
 This is a simple cruise control where the switch table tries to maintain a constant speed selected by the pilot. After selecting the speed, holding down the **accelerate (ACC)** button tells the switch table that the pilot is ready to accelerate.
+
+## Race modes
+
+In this mode the first lap is Manual Strategy and all the other laps are Automatic.
 
 ## Implementation
 
@@ -87,9 +91,9 @@ Further details on these CAN bus messages can be found in the current [CAN dbc f
 | Setting / Mode | 0 : Neutral | 1 : Manual     | 2 : Manual Strategy | 3 : Automatic Strategy | 4 : Speed Hold |
 | -------------- | ----------- | -------------- | ------------------- | ---------------------- | -------------- |
 | 0              | Neutral     | Pedal override | -                   | -                      | -              |
-| 1              | -           | 80% throttle   | Z22 ?               | LTV - LQR              | 5 km/h         |
-| 2              | -           | 90% throttle   | Z24 ?               | LQR + Switching        | 10 km/h        |
-| 3              | -           | 100% throttle  | Aumovio Z22         | Hybrid                 | 15 km/h        |
+| 1              | -           | 80% throttle   | -                   | LTV - LQR              | 5 km/h         |
+| 2              | -           | 90% throttle   | -                   | LQR + Switching        | 10 km/h        |
+| 3              | -           | 100% throttle  | Aumovio Z22         | -                      | 15 km/h        |
 | 4              | -           | -              | -                   | -                      | 20 km/h        |
 | 5              | -           | -              | -                   | -                      | 25 km/h        |
 | 6              | -           | -              | -                   | -                      | 30 km/h        |
