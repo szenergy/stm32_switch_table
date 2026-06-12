@@ -630,7 +630,7 @@ void _Wiper_Tick(uint8_t wiper_switch) {
 		break;
 #ifdef WIPER_SWEEP_DEBUG
 	case 2:
-		for (uint16_t i = 0; i < WIPER_TIM_ARR-20; i+=20){
+		for (uint16_t i = 0; i < 40000-20; i+=20){
 			if (HAL_GPIO_ReadPin(Wiper_switch_GPIO_Port, Wiper_switch_Pin) == GPIO_PIN_RESET) break;
 			_usr_wiper_pwm->Instance->CCR1 = i;
 #ifdef UART_DEBUG
