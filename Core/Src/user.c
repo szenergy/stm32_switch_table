@@ -10,7 +10,7 @@
 #include "user.h"
 #include "ltv_lqr_strategy.h"
 #include "switching_lqr_strategy.h"
-#include "speed_hold.h"
+#include "pesc_sleep.h"
 
 #ifdef UART_DEBUG
 #include <stdio.h>
@@ -45,7 +45,7 @@ struct {
 } simulink_debug;
 
 DW_ltv_lqr_strategy_T ltv_lqr_internal_state;
-DW_speed_hold_T speed_hold_internal_state;
+float speed_hold_I;
 
 uint16_t throttle_adc_buffer[10];
 struct {
@@ -81,8 +81,7 @@ void _Reset_Simulink_States() {
 	ltv_lqr_internal_state.DiscreteTimeIntegrator_DSTATE = 0;
 	ltv_lqr_internal_state.DiscreteTimeIntegrator_PrevRese = 0;
 	ltv_lqr_strategy_Init(&ltv_lqr_internal_state);
-	speed_hold_internal_state.Filter_DSTATE = 0;
-	speed_hold_internal_state.Integrator_DSTATE = 0;
+	speed_hold_I = 0;
 }
 
 /**
@@ -236,8 +235,10 @@ void _Calculate_MC_Ref() {
 	drive_state.torque_ref_out = 0;
 	drive_state.mode = DM_NEUTRAL;
 	drive_state.setting = 0;
+	switch_table_state.A.PESC_SLEEP = RESET;
 
 	if (steering_wheel_state.A.REVERSE != SET && steering_wheel_state.A.DRIVE != SET) {
+		switch_table_state.A.PESC_SLEEP = SET;
 		return;
 	}
 
@@ -273,7 +274,7 @@ void _Calculate_MC_Ref() {
 	);
 
 	switch (steering_wheel_state.ROT3) {
-		case ROT_1:
+		case ROT_1: // Manual
 			drive_state.mode = DM_MANUAL;
 			switch (steering_wheel_state.ROT1) {
 				case ROT_1:
@@ -290,7 +291,7 @@ void _Calculate_MC_Ref() {
 					break;
 			}
 			break;
-		case ROT_2:
+		case ROT_2: // Manual strategy
 			drive_state.mode = DM_MANUAL_STRATEGY;
 			switch (steering_wheel_state.ROT1) {
 				case ROT_1:  // Aumovio test track
@@ -305,7 +306,7 @@ void _Calculate_MC_Ref() {
 					break;
 			}
 			break;
-		case ROT_3:
+		case ROT_3: // Automatic strategy
 			drive_state.mode = DM_AUTOMATIC_STRATEGY;
 			switch (steering_wheel_state.ROT1) {
 				case ROT_1:
@@ -324,19 +325,20 @@ void _Calculate_MC_Ref() {
 					break;
 			}
 			break;
-		case ROT_4:
+		case ROT_4: // Speed hold
 			drive_state.mode = DM_SPEED_HOLD;
 			drive_state.setting = ROT_TO_INT[steering_wheel_state.ROT1];
 			uint8_t target_speed = drive_state.setting * 5;
-			speed_hold(
-					vehicle_state.speed,
-					target_speed,
-					&drive_state.torque_ref_out,
-					&simulink_debug.torque_gain,
-					&speed_hold_internal_state
-			);
+			simulink_debug.speed_ref = vehicle_state.speed;
+			float pid_temp = (target_speed - vehicle_state.speed) * 0.25F;
+			simulink_debug.torque_base = pid_temp;
+			speed_hold_I += pid_temp * 0.1F;
+			if (speed_hold_I > 1) speed_hold_I = 1;
+			else if (speed_hold_I < -1) speed_hold_I = -1;
+			drive_state.torque_ref_out = pid_temp + speed_hold_I;
+			simulink_debug.torque_gain = speed_hold_I;
 			break;
-		case ROT_5:
+		case ROT_5: // Race mode
 			switch (steering_wheel_state.ROT1) {
 				case ROT_1: // Aumovio test track
 					if (vehicle_state.lap_number == 2) {
@@ -358,6 +360,7 @@ void _Calculate_MC_Ref() {
 						simulink_debug.speed_ref = ltv_lqr_speed_ref;
 						simulink_debug.distance_ref = ltv_lqr_distance_ref;
 						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
+						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.distance, vehicle_state.speed / 3.6F);
 					}
 					break;
 				case ROT_2: // Silesia Ring
@@ -406,11 +409,11 @@ void _Calculate_MC_Ref() {
 
 void _Read_GPIO_Inputs() {
 	switch_table_state.A.AUTONOMOUS     = HAL_GPIO_ReadPin(Autonomous_switch_GPIO_Port, Autonomous_switch_Pin);
-	switch_table_state.A.HAZARD         = HAL_GPIO_ReadPin(Hazard_switch_GPIO_Port, Hazard_switch_Pin);
+	switch_table_state.A.LIGHTS_HAZARD  = HAL_GPIO_ReadPin(Hazard_switch_GPIO_Port, Hazard_switch_Pin);
 	switch_table_state.A.LIGHTS_ENABLE  = HAL_GPIO_ReadPin(Lights_enable_switch_GPIO_Port, Lights_enable_switch_Pin);
 	switch_table_state.A.MC_OW          = HAL_GPIO_ReadPin(Motorcontrol_override_switch_GPIO_Port, Motorcontrol_override_switch_Pin);
 	switch_table_state.A.WIPER          = HAL_GPIO_ReadPin(Wiper_switch_GPIO_Port, Wiper_switch_Pin);
-	switch_table_state.A.HEADLIGHT      = HAL_GPIO_ReadPin(Headlight_switch_GPIO_Port, Headlight_switch_Pin);
+	switch_table_state.A.LIGHTS_DRL     = HAL_GPIO_ReadPin(Headlight_switch_GPIO_Port, Headlight_switch_Pin);
 	switch_table_state.A.BRAKE          = HAL_GPIO_ReadPin(Brake_pedal_input_GPIO_Port, Brake_pedal_input_Pin);
 }
 
@@ -561,11 +564,11 @@ void _Send_VCU_Calculated_State_CAN() {
 void _Send_Simulink_Debug_CAN() {
 	uint8_t data_0x151[8];
 
-	int32_t torque_gain_buffer = simulink_debug.torque_gain * 100.0F;
+	int32_t torque_gain_buffer = simulink_debug.torque_base * 100.0F;
 	data_0x151[0] = torque_gain_buffer >> 8;
 	data_0x151[1] = torque_gain_buffer;
 
-	int32_t torque_base_buffer = simulink_debug.torque_base * 100.0F;
+	int32_t torque_base_buffer = simulink_debug.torque_gain * 100.0F;
 	data_0x151[2] = torque_base_buffer >> 8;
 	data_0x151[3] = torque_base_buffer;
 

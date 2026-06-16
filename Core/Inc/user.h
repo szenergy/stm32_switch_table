@@ -101,13 +101,14 @@ typedef union  __attribute__(())
     uint8_t bits;
     struct
     {
-        uint8_t HEADLIGHT       :1;
-        uint8_t HAZARD          :1;
+        uint8_t LIGHTS_DRL      :1;
+        uint8_t LIGHTS_HAZARD   :1;
         uint8_t AUTONOMOUS      :1;
         uint8_t BRAKE           :1;
         uint8_t LIGHTS_ENABLE   :1;
         uint8_t MC_OW           :1;
         uint8_t WIPER           :1;
+        uint8_t PESC_SLEEP      :1;
     };
 } VCU_STATE_A;
 

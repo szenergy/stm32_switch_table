@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.25
+ * Model version                  : 1.29
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Fri Jun  5 09:51:16 2026
+ * C/C++ source code generated on : Mon Jun 15 20:42:22 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -995,6 +995,8 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
   /* Pooled Parameter (Expression: AUMOVIO_outline_trq_ref_dat)
    * Referenced by:
    *   '<S1>/1D Torque from Distance'
+   *   '<S2>/1D Torque from Distance'
+   *   '<S2>/1D Torque from Distance1'
    *   '<S3>/norm'
    */
   { 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F, 40.3093681F,
@@ -1115,6 +1117,8 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
   /* Pooled Parameter (Expression: AUMOVIO_outline_trq_ref_dist)
    * Referenced by:
    *   '<S1>/1D Torque from Distance'
+   *   '<S2>/1D Torque from Distance'
+   *   '<S2>/1D Torque from Distance1'
    *   '<S3>/fast'
    *   '<S3>/norm'
    *   '<S3>/slow'
@@ -1361,9 +1365,7 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
     13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F,
     13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F,
     13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F,
-    13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F,
-    13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F,
-    13.3883657F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
+    13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 0.0F, 0.0F, 0.0F, 0.0F,
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
@@ -1413,7 +1415,8 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F },
+    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
+    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F },
 
   /* Computed Parameter: fast_tableData
    * Referenced by: '<S3>/fast'
@@ -1482,7 +1485,8 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
     13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F,
     13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F,
     13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F,
-    13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 0.0F, 0.0F,
+    13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F,
+    13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F, 13.3883657F,
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
@@ -1533,8 +1537,7 @@ const ConstP_code_gen_main_T code_gen_main_ConstP = {
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
     0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F }
+    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F }
 };
 
 /*
