@@ -2,7 +2,7 @@
  * Trial License - for use to evaluate programs for possible purchase as
  * an end-user only.
  *
- * File: code_gen_main_types.h
+ * File: rtGetNaN.c
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
@@ -16,13 +16,20 @@
  * Validation result: Not run
  */
 
-#ifndef code_gen_main_types_h_
-#define code_gen_main_types_h_
+#include "rtwtypes.h"
+#include "rtGetNaN.h"
 
-/* Forward declaration for rtModel */
-typedef struct tag_RTM_code_gen_main_T RT_MODEL_code_gen_main_T;
+/* Return rtNaN needed by the generated code. */
+real_T rtGetNaN(void)
+{
+  return rtNaN;
+}
 
-#endif                                 /* code_gen_main_types_h_ */
+/* Return rtNaNF needed by the generated code. */
+real32_T rtGetNaNF(void)
+{
+  return rtNaNF;
+}
 
 /*
  * File trailer for generated code.

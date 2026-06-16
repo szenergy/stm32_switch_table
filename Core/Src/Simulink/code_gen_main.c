@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.25
+ * Model version                  : 1.29
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Fri Jun  5 09:51:16 2026
+ * C/C++ source code generated on : Mon Jun 15 20:42:22 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -18,7 +18,7 @@
 
 #include "code_gen_main.h"
 #include "ltv_lqr_strategy.h"
-#include "speed_hold.h"
+#include "pesc_sleep.h"
 #include "switching_lqr_strategy.h"
 #include "rtwtypes.h"
 #include "code_gen_main_private.h"
@@ -193,11 +193,10 @@ void code_gen_main_step(void)
 
   /* End of Outputs for SubSystem: '<Root>/LTV - LQR Strategy' */
 
-  /* Outputs for Atomic SubSystem: '<Root>/Speed Hold' */
-  speed_hold(0.0F, 0.0F, &rtb_ThrottleOut_a, &rtb_Switch2,
-             &code_gen_main_DW.SpeedHold);
+  /* Outputs for Atomic SubSystem: '<Root>/PESC Sleep' */
+  pesc_sleep(0.0F, 0.0F);
 
-  /* End of Outputs for SubSystem: '<Root>/Speed Hold' */
+  /* End of Outputs for SubSystem: '<Root>/PESC Sleep' */
 
   /* Outputs for Atomic SubSystem: '<Root>/Switching LQR Strategy' */
   switching_lqr_strategy(0.0F, 0.0F, 0.0F, &rtb_ThrottleOut_a, &rtb_TorqueGain,

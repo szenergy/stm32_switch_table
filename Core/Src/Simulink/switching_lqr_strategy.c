@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.25
+ * Model version                  : 1.29
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Fri Jun  5 09:51:16 2026
+ * C/C++ source code generated on : Mon Jun 15 20:42:22 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -48,19 +48,19 @@ void switching_lqr_strategy(real32_T rtu_Distance, real32_T rtu_RPM, real32_T
    */
   if (*rty_Torque_Gain <= 0.99F) {
     *rty_Torque_Base = code_gen_main_ConstP.slow_tableData[plook_u32f_linckan
-      (rtu_Distance, code_gen_main_ConstP.pooled14, 1070U)];
+      (rtu_Distance, code_gen_main_ConstP.pooled13, 1070U)];
   } else if (*rty_Torque_Gain >= 1.01F) {
     /* Switch: '<S3>/Switch5' incorporates:
      *  Lookup_n-D: '<S3>/fast'
      */
     *rty_Torque_Base = code_gen_main_ConstP.fast_tableData[plook_u32f_linckan
-      (rtu_Distance, code_gen_main_ConstP.pooled14, 1070U)];
+      (rtu_Distance, code_gen_main_ConstP.pooled13, 1070U)];
   } else {
     /* Switch: '<S3>/Switch5' incorporates:
      *  Lookup_n-D: '<S3>/norm'
      */
-    *rty_Torque_Base = code_gen_main_ConstP.pooled13[plook_u32f_linckan
-      (rtu_Distance, code_gen_main_ConstP.pooled14, 1070U)];
+    *rty_Torque_Base = code_gen_main_ConstP.pooled12[plook_u32f_linckan
+      (rtu_Distance, code_gen_main_ConstP.pooled13, 1070U)];
   }
 
   /* End of Switch: '<S3>/Switch2' */
