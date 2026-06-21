@@ -354,7 +354,7 @@ void _Calculate_MC_Ref() {
 						simulink_debug.speed_ref = ltv_lqr_speed_ref;
 						simulink_debug.distance_ref = ltv_lqr_distance_ref;
 						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
-						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.distance);
+						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.distance, vehicle_state.speed / 3.6F);
 					}
 					break;
 				case ROT_2: // Silesia Ring
@@ -377,7 +377,7 @@ void _Calculate_MC_Ref() {
 						simulink_debug.speed_ref = ltv_lqr_speed_ref;
 						simulink_debug.distance_ref = ltv_lqr_distance_ref;
 						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
-						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.distance);
+						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.distance, vehicle_state.speed / 3.6F);
 					}
 					break;
 			}

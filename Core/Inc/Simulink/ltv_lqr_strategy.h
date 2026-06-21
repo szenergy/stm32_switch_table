@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.31
+ * Model version                  : 1.33
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Thu Jun 18 15:23:46 2026
+ * C/C++ source code generated on : Mon Jun 22 00:25:26 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -21,7 +21,6 @@
 #ifndef code_gen_main_COMMON_INCLUDES_
 #define code_gen_main_COMMON_INCLUDES_
 #include "rtwtypes.h"
-#include "rt_nonfinite.h"
 #include "math.h"
 #endif                                 /* code_gen_main_COMMON_INCLUDES_ */
 
