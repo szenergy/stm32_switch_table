@@ -9,7 +9,6 @@
 
 #include "user.h"
 #include "ltv_lqr_strategy.h"
-#include "switching_lqr_strategy.h"
 #include "pesc_sleep.h"
 
 #ifdef UART_DEBUG
@@ -261,17 +260,6 @@ void _Calculate_MC_Ref() {
 		&ltv_lqr_internal_state
 	);
 
-	float switching_lqr_torque_ref_out = 0;
-	float switching_lqr_torque_base = 0;
-	float switching_lqr_torque_gain = 0;
-	switching_lqr_strategy(
-		vehicle_state.distance,
-		vehicle_state.wheel_rpm,
-		vehicle_state.total_time_diff,
-		&switching_lqr_torque_ref_out,
-		&switching_lqr_torque_gain,
-		&switching_lqr_torque_base
-	);
 
 	switch (steering_wheel_state.ROT3) {
 		case ROT_1: // Manual
@@ -294,7 +282,7 @@ void _Calculate_MC_Ref() {
 		case ROT_2: // Manual strategy
 			drive_state.mode = DM_MANUAL_STRATEGY;
 			switch (steering_wheel_state.ROT1) {
-				case ROT_1:  // Aumovio test track
+				case ROT_1:  // Aumovio test track Z22
 					drive_state.setting = 3;
 					if (vehicle_state.wheel_rpm < 224) {
 						drive_state.torque_ref_out = 1;
@@ -302,7 +290,13 @@ void _Calculate_MC_Ref() {
 						drive_state.torque_ref_out = (float)0.332217618;
 					}
 					break;
-				case ROT_2: // Silesia Ring
+				case ROT_2: // Silesia Ring Z22
+					drive_state.setting = 1;
+					if (vehicle_state.wheel_rpm < 159.388F) {
+						drive_state.torque_ref_out = 1;
+					} else {
+						drive_state.torque_ref_out = (float)0.381551;
+					}
 					break;
 			}
 			break;
@@ -318,10 +312,10 @@ void _Calculate_MC_Ref() {
 					drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
 					break;
 				case ROT_2:
-					drive_state.setting = 2;
-					simulink_debug.torque_base = switching_lqr_torque_base;
-					simulink_debug.torque_gain = switching_lqr_torque_gain;
-					drive_state.torque_ref_out = switching_lqr_torque_ref_out;
+//					drive_state.setting = 2;
+//					simulink_debug.torque_base = switching_lqr_torque_base;
+//					simulink_debug.torque_gain = switching_lqr_torque_gain;
+//					drive_state.torque_ref_out = switching_lqr_torque_ref_out;
 					break;
 			}
 			break;
@@ -360,10 +354,31 @@ void _Calculate_MC_Ref() {
 						simulink_debug.speed_ref = ltv_lqr_speed_ref;
 						simulink_debug.distance_ref = ltv_lqr_distance_ref;
 						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
-						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.distance, vehicle_state.speed / 3.6F);
+						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.distance);
 					}
 					break;
 				case ROT_2: // Silesia Ring
+					if (vehicle_state.lap_number == 2) {
+						vehicle_state.total_time_diff = 0;
+					}
+					if (vehicle_state.lap_number <= 1) {
+						drive_state.mode = DM_MANUAL_STRATEGY;
+						drive_state.setting = 1;
+						if (vehicle_state.wheel_rpm < 159.388F) {
+							drive_state.torque_ref_out = 1;
+						} else {
+							drive_state.torque_ref_out = (float)0.381551;
+						}
+					} else {
+						drive_state.mode = DM_AUTOMATIC_STRATEGY;
+						drive_state.setting = 1;
+						simulink_debug.torque_base = ltv_lqr_torque_base;
+						simulink_debug.torque_gain = ltv_lqr_torque_gain;
+						simulink_debug.speed_ref = ltv_lqr_speed_ref;
+						simulink_debug.distance_ref = ltv_lqr_distance_ref;
+						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
+						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.distance);
+					}
 					break;
 			}
 			break;
@@ -403,7 +418,7 @@ void _Calculate_MC_Ref() {
 
 
 #ifdef UART_DEBUG
-	Debug_Msg("MC_REF", drive_state.torque_ref);
+	Debug_Msg("MC_REF", drive_state.torque_ref_out);
 #endif
 }
 

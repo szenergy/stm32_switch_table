@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.29
+ * Model version                  : 1.31
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Mon Jun 15 20:42:22 2026
+ * C/C++ source code generated on : Thu Jun 18 15:23:46 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -61,28 +61,20 @@ real32_T rt_modf_snf(real32_T u0, real32_T u1)
 }
 
 /* Output and update for atomic system: '<Root>/PESC Sleep' */
-boolean_T pesc_sleep(real32_T rtu_Distance, real32_T rtu_Speed)
+boolean_T pesc_sleep(real32_T rtu_Distance)
 {
   boolean_T rty_PESC_Sleep_0;
 
   /* Logic: '<S2>/Logical Operator' incorporates:
    *  Constant: '<S2>/Max distance'
    *  Constant: '<S2>/Min Torque to wake PESC'
-   *  Constant: '<S2>/Seconds to wake before acceleration point'
-   *  Logic: '<S2>/Logical Operator1'
-   *  Lookup_n-D: '<S2>/1D Torque from Distance'
-   *  Lookup_n-D: '<S2>/1D Torque from Distance1'
+   *  Lookup_n-D: '<S2>/Sleep lookup'
    *  Math: '<S2>/Math Function'
-   *  Product: '<S2>/Product'
    *  RelationalOperator: '<S2>/GreaterThan'
-   *  RelationalOperator: '<S2>/GreaterThan1'
-   *  Sum: '<S2>/Sum'
    */
-  rty_PESC_Sleep_0 = ((!(code_gen_main_ConstP.pooled12[plook_u32f_linckan
-    (rtu_Distance, code_gen_main_ConstP.pooled13, 1070U)] > 1.0F)) &&
-                      (!(code_gen_main_ConstP.pooled12[plook_u32f_linckan
-    (rt_modf_snf(rtu_Speed * 3.0F + rtu_Distance, 750.0F),
-     code_gen_main_ConstP.pooled13, 1070U)] > 1.0F)));
+  rty_PESC_Sleep_0 =
+    !(code_gen_main_ConstP.Sleeplookup_tableData[plook_u32f_linckan(rt_modf_snf
+       (rtu_Distance, 1282.01111F), code_gen_main_ConstP.pooled3, 1910U)] > 0.1F);
   return rty_PESC_Sleep_0;
 }
 
