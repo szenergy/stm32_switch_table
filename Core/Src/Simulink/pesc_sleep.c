@@ -8,7 +8,7 @@
  *
  * Model version                  : 1.35
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Mon Jun 22 13:48:53 2026
+ * C/C++ source code generated on : Mon Jun 22 17:55:40 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -18,23 +18,15 @@
 
 #include "rtwtypes.h"
 #include "pesc_sleep.h"
-#include <math.h>
 #include "code_gen_main.h"
 #include "code_gen_main_private.h"
 
 /* Output and update for atomic system: '<Root>/PESC Sleep' */
-boolean_T pesc_sleep(real32_T rtu_Distance, real32_T rtu_Speed)
+real32_T pesc_sleep(real32_T rtu_Distance)
 {
-  /* RelationalOperator: '<S2>/GreaterThan' incorporates:
-   *  Constant: '<S2>/Minimum meters'
-   *  Constant: '<S2>/Seconds before acceleration'
-   *  Lookup_n-D: '<S2>/Sleep lookup'
-   *  MinMax: '<S2>/Max'
-   *  Product: '<S2>/Distance traveled'
-   */
-  return code_gen_main_ConstP.Sleeplookup_tableData[plook_u32f_linckan
-    (rtu_Distance, code_gen_main_ConstP.pooled4, 1910U)] > fmaxf(rtu_Speed *
-    4.0F, 5.0F);
+  /* Lookup_n-D: '<S2>/PESC_sleep_LUT' */
+  return code_gen_main_ConstP.PESC_sleep_LUT_tableData[plook_u32f_linckan
+    (rtu_Distance, code_gen_main_ConstP.pooled3, 1910U)];
 }
 
 /*
