@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.29
+ * Model version                  : 1.35
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Mon Jun 15 20:42:22 2026
+ * C/C++ source code generated on : Mon Jun 22 13:48:53 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -19,7 +19,6 @@
 #include "code_gen_main.h"
 #include "ltv_lqr_strategy.h"
 #include "pesc_sleep.h"
-#include "switching_lqr_strategy.h"
 #include "rtwtypes.h"
 #include "code_gen_main_private.h"
 
@@ -182,13 +181,13 @@ void code_gen_main_step(void)
 {
   real32_T rtb_DiscreteTimeIntegrator;
   real32_T rtb_Product5;
-  real32_T rtb_Switch2;
-  real32_T rtb_ThrottleOut_a;
+  real32_T rtb_ThrottleOut;
   real32_T rtb_TorqueGain;
+  real32_T rtb_TorqueRef;
 
   /* Outputs for Atomic SubSystem: '<Root>/LTV - LQR Strategy' */
-  ltv_lqr_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut_a,
-                   &rtb_TorqueGain, &rtb_Switch2, &rtb_Product5,
+  ltv_lqr_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut,
+                   &rtb_TorqueGain, &rtb_TorqueRef, &rtb_Product5,
                    &rtb_DiscreteTimeIntegrator, &code_gen_main_DW.LTVLQRStrategy);
 
   /* End of Outputs for SubSystem: '<Root>/LTV - LQR Strategy' */
@@ -197,12 +196,6 @@ void code_gen_main_step(void)
   pesc_sleep(0.0F, 0.0F);
 
   /* End of Outputs for SubSystem: '<Root>/PESC Sleep' */
-
-  /* Outputs for Atomic SubSystem: '<Root>/Switching LQR Strategy' */
-  switching_lqr_strategy(0.0F, 0.0F, 0.0F, &rtb_ThrottleOut_a, &rtb_TorqueGain,
-    &rtb_Switch2);
-
-  /* End of Outputs for SubSystem: '<Root>/Switching LQR Strategy' */
 }
 
 /* Model initialize function */

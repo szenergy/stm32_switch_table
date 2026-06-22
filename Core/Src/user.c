@@ -9,7 +9,6 @@
 
 #include "user.h"
 #include "ltv_lqr_strategy.h"
-#include "switching_lqr_strategy.h"
 #include "pesc_sleep.h"
 
 #ifdef UART_DEBUG
@@ -68,6 +67,7 @@ struct {
 } rate_limiter;
 
 uint16_t bms_query_ARR;
+uint16_t smag_init_ARR;
 
 CAN_HandleTypeDef *_usr_can;
 TIM_HandleTypeDef *_usr_wiper_pwm;
@@ -112,6 +112,7 @@ void _Reset_Variables() {
 	wiper_state.running = RESET;
 	wiper_state.step = 0;
 	wiper_state.ARR = 0;
+	smag_init_ARR = 0;
 	_Reset_Simulink_States();
 }
 
@@ -261,17 +262,6 @@ void _Calculate_MC_Ref() {
 		&ltv_lqr_internal_state
 	);
 
-	float switching_lqr_torque_ref_out = 0;
-	float switching_lqr_torque_base = 0;
-	float switching_lqr_torque_gain = 0;
-	switching_lqr_strategy(
-		vehicle_state.distance,
-		vehicle_state.wheel_rpm,
-		vehicle_state.total_time_diff,
-		&switching_lqr_torque_ref_out,
-		&switching_lqr_torque_gain,
-		&switching_lqr_torque_base
-	);
 
 	switch (steering_wheel_state.ROT3) {
 		case ROT_1: // Manual
@@ -294,7 +284,7 @@ void _Calculate_MC_Ref() {
 		case ROT_2: // Manual strategy
 			drive_state.mode = DM_MANUAL_STRATEGY;
 			switch (steering_wheel_state.ROT1) {
-				case ROT_1:  // Aumovio test track
+				case ROT_1:  // Aumovio test track Z22
 					drive_state.setting = 3;
 					if (vehicle_state.wheel_rpm < 224) {
 						drive_state.torque_ref_out = 1;
@@ -302,7 +292,13 @@ void _Calculate_MC_Ref() {
 						drive_state.torque_ref_out = (float)0.332217618;
 					}
 					break;
-				case ROT_2: // Silesia Ring
+				case ROT_2: // Silesia Ring Z22
+					drive_state.setting = 1;
+					if (vehicle_state.wheel_rpm < 159.388F) {
+						drive_state.torque_ref_out = 1;
+					} else {
+						drive_state.torque_ref_out = (float)0.381551;
+					}
 					break;
 			}
 			break;
@@ -318,10 +314,10 @@ void _Calculate_MC_Ref() {
 					drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
 					break;
 				case ROT_2:
-					drive_state.setting = 2;
-					simulink_debug.torque_base = switching_lqr_torque_base;
-					simulink_debug.torque_gain = switching_lqr_torque_gain;
-					drive_state.torque_ref_out = switching_lqr_torque_ref_out;
+//					drive_state.setting = 2;
+//					simulink_debug.torque_base = switching_lqr_torque_base;
+//					simulink_debug.torque_gain = switching_lqr_torque_gain;
+//					drive_state.torque_ref_out = switching_lqr_torque_ref_out;
 					break;
 			}
 			break;
@@ -364,6 +360,27 @@ void _Calculate_MC_Ref() {
 					}
 					break;
 				case ROT_2: // Silesia Ring
+					if (vehicle_state.lap_number == 2) {
+						vehicle_state.total_time_diff = 0;
+					}
+					if (vehicle_state.lap_number <= 1) {
+						drive_state.mode = DM_MANUAL_STRATEGY;
+						drive_state.setting = 1;
+						if (vehicle_state.wheel_rpm < 159.388F) {
+							drive_state.torque_ref_out = 1;
+						} else {
+							drive_state.torque_ref_out = (float)0.381551;
+						}
+					} else {
+						drive_state.mode = DM_AUTOMATIC_STRATEGY;
+						drive_state.setting = 1;
+						simulink_debug.torque_base = ltv_lqr_torque_base;
+						simulink_debug.torque_gain = ltv_lqr_torque_gain;
+						simulink_debug.speed_ref = ltv_lqr_speed_ref;
+						simulink_debug.distance_ref = ltv_lqr_distance_ref;
+						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
+						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.distance, vehicle_state.speed / 3.6F);
+					}
 					break;
 			}
 			break;
@@ -388,6 +405,11 @@ void _Calculate_MC_Ref() {
 		drive_state.mode = DM_MANUAL;
 		drive_state.setting = 0;
 		drive_state.torque_ref_out = drive_state.throttle_pedal;
+		switch_table_state.A.PESC_SLEEP = RESET;
+	}
+
+	if (switch_table_state.A.AUTONOMOUS == SET) {
+		switch_table_state.A.PESC_SLEEP = RESET;
 	}
 
 	if (drive_state.mode != drive_state.prev_mode) {
@@ -403,7 +425,7 @@ void _Calculate_MC_Ref() {
 
 
 #ifdef UART_DEBUG
-	Debug_Msg("MC_REF", drive_state.torque_ref);
+	Debug_Msg("MC_REF", drive_state.torque_ref_out);
 #endif
 }
 
@@ -588,18 +610,6 @@ void _Send_BMS_Query_CAN() {
 	_Generic_CAN_Send(SET, 0x0400FF80, 8, data);
 }
 
-void _Send_SMAG_Init_CAN() {
-	HAL_Delay(500);
-
-	uint8_t data_0x605[8] = {0x2B, 0, 0x62, 0, 0x32, 0, 0, 0};
-	_Generic_CAN_Send(RESET, 0x605, 8, data_0x605);
-
-	HAL_Delay(500);
-
-	uint8_t data_0x0[8] = {0x1, 0x5, 0, 0, 0, 0, 0, 0};
-	_Generic_CAN_Send(RESET, 0x0, 8, data_0x0);
-}
-
 void _Send_MC_Command_CAN() {
 	uint8_t data[4];
 	int32_t throttle_buffer = drive_state.torque_ref_out * 100000;
@@ -698,8 +708,6 @@ void User_Init(CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UAR
 	_Reset_Outputs();
 	_Init_CAN();
 
-	_Send_SMAG_Init_CAN();
-
 #ifdef DEBUG_LEDS
 	HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_SET);
 #endif
@@ -736,5 +744,16 @@ void User_Loop() {
 	if (bms_query_ARR++ >= BMS_QUERY_PERIOD) {
 		_Send_BMS_Query_CAN();
 		bms_query_ARR = 0;
+	}
+
+	if (smag_init_ARR <= 150) {
+		if (smag_init_ARR == 100) {
+			uint8_t data_0x605[8] = {0x2B, 0, 0x62, 0, 0x32, 0, 0, 0};
+			_Generic_CAN_Send(RESET, 0x605, 8, data_0x605);
+		} else if (smag_init_ARR == 150) {
+			uint8_t data_0x0[8] = {0x1, 0x5, 0, 0, 0, 0, 0, 0};
+			_Generic_CAN_Send(RESET, 0x0, 8, data_0x0);
+		}
+		smag_init_ARR++;
 	}
 }

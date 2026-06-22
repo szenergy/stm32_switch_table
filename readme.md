@@ -91,7 +91,7 @@ Further details on these CAN bus messages can be found in the current [CAN dbc f
 | Setting / Mode | 0 : Neutral | 1 : Manual     | 2 : Manual Strategy | 3 : Automatic Strategy | 4 : Speed Hold |
 | -------------- | ----------- | -------------- | ------------------- | ---------------------- | -------------- |
 | 0              | Neutral     | Pedal override | -                   | -                      | -              |
-| 1              | -           | 80% throttle   | -                   | LTV - LQR              | 5 km/h         |
+| 1              | -           | 80% throttle   | Silesia Ring Z22    | LTV - LQR              | 5 km/h         |
 | 2              | -           | 90% throttle   | -                   | LQR + Switching        | 10 km/h        |
 | 3              | -           | 100% throttle  | Aumovio Z22         | -                      | 15 km/h        |
 | 4              | -           | -              | -                   | -                      | 20 km/h        |
