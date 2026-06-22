@@ -8,7 +8,7 @@
  *
  * Model version                  : 1.35
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Mon Jun 22 13:48:53 2026
+ * C/C++ source code generated on : Mon Jun 22 17:55:40 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -70,7 +70,7 @@ void ltv_lqr_strategy(real32_T rtu_Speed, real32_T rtu_Distance, real32_T
   /* Lookup_n-D: '<S1>/1D Torque from Distance' */
   *rty_Torque_Base =
     code_gen_main_ConstP.uDTorquefromDistance_tableData[plook_u32f_linckan
-    (rtu_Distance, code_gen_main_ConstP.pooled4, 1910U)];
+    (rtu_Distance, code_gen_main_ConstP.pooled3, 1910U)];
 
   /* Switch: '<S1>/Switch2' incorporates:
    *  Constant: '<S1>/Constant'

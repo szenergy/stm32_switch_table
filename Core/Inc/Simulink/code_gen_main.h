@@ -8,7 +8,7 @@
  *
  * Model version                  : 1.35
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Mon Jun 22 13:48:53 2026
+ * C/C++ source code generated on : Mon Jun 22 17:55:40 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -90,14 +90,14 @@ typedef struct {
   /* Pooled Parameter (Expression: LTV_LQG_Matrices_Silesia_z22_17650J_dist_ref)
    * Referenced by:
    *   '<S1>/1D Torque from Distance'
-   *   '<S2>/Sleep lookup'
+   *   '<S2>/PESC_sleep_LUT'
    */
-  real32_T pooled4[1911];
+  real32_T pooled3[1911];
 
-  /* Computed Parameter: Sleeplookup_tableData
-   * Referenced by: '<S2>/Sleep lookup'
+  /* Computed Parameter: PESC_sleep_LUT_tableData
+   * Referenced by: '<S2>/PESC_sleep_LUT'
    */
-  real32_T Sleeplookup_tableData[1911];
+  real32_T PESC_sleep_LUT_tableData[1911];
 } ConstP_code_gen_main_T;
 
 /* Real-time Model Data Structure */
