@@ -67,6 +67,7 @@ struct {
 } rate_limiter;
 
 uint16_t bms_query_ARR;
+uint16_t smag_init_ARR;
 
 CAN_HandleTypeDef *_usr_can;
 TIM_HandleTypeDef *_usr_wiper_pwm;
@@ -111,6 +112,7 @@ void _Reset_Variables() {
 	wiper_state.running = RESET;
 	wiper_state.step = 0;
 	wiper_state.ARR = 0;
+	smag_init_ARR = 0;
 	_Reset_Simulink_States();
 }
 
@@ -403,6 +405,11 @@ void _Calculate_MC_Ref() {
 		drive_state.mode = DM_MANUAL;
 		drive_state.setting = 0;
 		drive_state.torque_ref_out = drive_state.throttle_pedal;
+		switch_table_state.A.PESC_SLEEP = RESET;
+	}
+
+	if (switch_table_state.A.AUTONOMOUS == SET) {
+		switch_table_state.A.PESC_SLEEP = RESET;
 	}
 
 	if (drive_state.mode != drive_state.prev_mode) {
@@ -603,18 +610,6 @@ void _Send_BMS_Query_CAN() {
 	_Generic_CAN_Send(SET, 0x0400FF80, 8, data);
 }
 
-void _Send_SMAG_Init_CAN() {
-	HAL_Delay(500);
-
-	uint8_t data_0x605[8] = {0x2B, 0, 0x62, 0, 0x32, 0, 0, 0};
-	_Generic_CAN_Send(RESET, 0x605, 8, data_0x605);
-
-	HAL_Delay(500);
-
-	uint8_t data_0x0[8] = {0x1, 0x5, 0, 0, 0, 0, 0, 0};
-	_Generic_CAN_Send(RESET, 0x0, 8, data_0x0);
-}
-
 void _Send_MC_Command_CAN() {
 	uint8_t data[4];
 	int32_t throttle_buffer = drive_state.torque_ref_out * 100000;
@@ -713,8 +708,6 @@ void User_Init(CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UAR
 	_Reset_Outputs();
 	_Init_CAN();
 
-	_Send_SMAG_Init_CAN();
-
 #ifdef DEBUG_LEDS
 	HAL_GPIO_WritePin(LED3_Green_GPIO_Port, LED3_Green_Pin, GPIO_PIN_SET);
 #endif
@@ -751,5 +744,16 @@ void User_Loop() {
 	if (bms_query_ARR++ >= BMS_QUERY_PERIOD) {
 		_Send_BMS_Query_CAN();
 		bms_query_ARR = 0;
+	}
+
+	if (smag_init_ARR <= 150) {
+		if (smag_init_ARR == 100) {
+			uint8_t data_0x605[8] = {0x2B, 0, 0x62, 0, 0x32, 0, 0, 0};
+			_Generic_CAN_Send(RESET, 0x605, 8, data_0x605);
+		} else if (smag_init_ARR == 150) {
+			uint8_t data_0x0[8] = {0x1, 0x5, 0, 0, 0, 0, 0, 0};
+			_Generic_CAN_Send(RESET, 0x0, 8, data_0x0);
+		}
+		smag_init_ARR++;
 	}
 }

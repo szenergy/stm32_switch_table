@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.33
+ * Model version                  : 1.35
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Mon Jun 22 00:25:26 2026
+ * C/C++ source code generated on : Mon Jun 22 13:48:53 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -92,7 +92,7 @@ typedef struct {
    *   '<S1>/1D Torque from Distance'
    *   '<S2>/Sleep lookup'
    */
-  real32_T pooled3[1911];
+  real32_T pooled4[1911];
 
   /* Computed Parameter: Sleeplookup_tableData
    * Referenced by: '<S2>/Sleep lookup'
