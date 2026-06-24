@@ -456,9 +456,9 @@ void _Init_CAN() {
 	filter_0x190.FilterActivation =     CAN_FILTER_ENABLE;
 
 	filter_0x190.FilterIdHigh =     (0x190 << 5);
-	filter_0x190.FilterIdLow =      (0x190 << 5);
+	filter_0x190.FilterIdLow =      (0x10  << 5);
 	filter_0x190.FilterMaskIdHigh = (0x190 << 5);
-	filter_0x190.FilterMaskIdLow =  (0x190 << 5);
+	filter_0x190.FilterMaskIdLow =  (0x10  << 5);
 
 	if (HAL_CAN_ConfigFilter(_usr_can, &filter_0x190) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_FILTER_CONFIG, SET);
@@ -497,19 +497,23 @@ void _Receive_CAN() {
 	CAN_RxHeaderTypeDef header;
 	uint8_t data[8];
 
-	if (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO0, &header, data) == HAL_OK) {
-		steering_wheel_state.A.bits = data[0];
-		steering_wheel_state.ROT1 = data[1];
-		steering_wheel_state.ROT2 = data[2];
-		steering_wheel_state.ROT3 = data[3];
-	} else {
-		User_Error_Handler(UERR_CAN_RECEIVE_STW, RESET);
+	while (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO0, &header, data) == HAL_OK) {
+		if (header.StdId == 0x10) {
+			if(data[0] == 0x21){
+				HAL_GPIO_WritePin(SHELL_AUT_RELAY_GPIO_Port, SHELL_AUT_RELAY_Pin, GPIO_PIN_SET);
+			}else{
+				HAL_GPIO_WritePin(SHELL_AUT_RELAY_GPIO_Port, SHELL_AUT_RELAY_Pin, GPIO_PIN_RESET);
+			}
+		} else {
+			steering_wheel_state.A.bits = data[0];
+			steering_wheel_state.ROT1 = data[1];
+			steering_wheel_state.ROT2 = data[2];
+			steering_wheel_state.ROT3 = data[3];
+		}
 	}
 
-	if (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO1, &header, data) == HAL_OK) {
+	while (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO1, &header, data) == HAL_OK) {
 		vehicle_state.wheel_rpm = (((uint16_t)data[0] << 8) | data[1]) / 100;
-	} else {
-		User_Error_Handler(UERR_CAN_RECEIVE_ENCODER, RESET);
 	}
 }
 

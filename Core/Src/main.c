@@ -436,9 +436,9 @@ static void MX_USART1_UART_Init(void)
   huart1.Instance = USART1;
   huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_9B;
-  huart1.Init.StopBits = UART_STOPBITS_2;
+  huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_EVEN;
-  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.Mode = UART_MODE_TX;
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_8;
   if (HAL_UART_Init(&huart1) != HAL_OK)
@@ -492,7 +492,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, Brake_light_Pin|Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, SHELL_AUT_RELAY_Pin|Debug_Out_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : Headlight_switch_Pin Lights_enable_switch_Pin Autonomous_switch_Pin Motorcontrol_override_switch_Pin */
   GPIO_InitStruct.Pin = Headlight_switch_Pin|Lights_enable_switch_Pin|Autonomous_switch_Pin|Motorcontrol_override_switch_Pin;
@@ -520,18 +520,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(Brake_light_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : SHELL_AUT_RELAY_Pin Debug_Out_Pin */
+  GPIO_InitStruct.Pin = SHELL_AUT_RELAY_Pin|Debug_Out_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
   /*Configure GPIO pins : Clutch_pedal_input_Pin Brake_pedal_input_Pin */
   GPIO_InitStruct.Pin = Clutch_pedal_input_Pin|Brake_pedal_input_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : Debug_Out_Pin */
-  GPIO_InitStruct.Pin = Debug_Out_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(Debug_Out_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Wiper_DCDC_enable_Pin */
   GPIO_InitStruct.Pin = Wiper_DCDC_enable_Pin;
