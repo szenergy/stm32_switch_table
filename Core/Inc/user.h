@@ -15,7 +15,7 @@
 // *** Definitions ***
 
 // Optimal lap time in seconds, used for strategy
-#define OPTIMAL_LAP (float)191.1
+#define OPTIMAL_LAP (float)188.57
 
 // These variables are used for lap button protection
 // Set the minimum time and distance required for the lap button to register again after a press

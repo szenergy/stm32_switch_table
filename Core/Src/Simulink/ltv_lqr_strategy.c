@@ -8,7 +8,7 @@
  *
  * Model version                  : 1.35
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Mon Jun 22 17:55:40 2026
+ * C/C++ source code generated on : Sat Jun 27 10:44:02 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -40,18 +40,18 @@ void ltv_lqr_strategy(real32_T rtu_Speed, real32_T rtu_Distance, real32_T
 
   /* Lookup_n-D: '<S1>/1D Speed from laptime' */
   *rty_Speed_Ref = look1_iflf_linlcpw(rtu_Laptime, code_gen_main_ConstP.pooled1,
-    code_gen_main_ConstP.uDSpeedfromlaptime_tableData, 1910U);
+    code_gen_main_ConstP.uDSpeedfromlaptime_tableData, 1880U);
 
   /* Sum: '<S1>/Sum6' incorporates:
    *  Constant: '<S1>/Optimal lap'
    */
-  *rty_Distance_Ref = rtu_Total_Diff + 191.1F;
+  *rty_Distance_Ref = rtu_Total_Diff + 188.57F;
 
   /* Product: '<S1>/Product5' incorporates:
    *  Constant: '<S1>/Optimal lap'
    *  Product: '<S1>/Divide'
    */
-  *rty_Speed_Ref *= *rty_Distance_Ref / 191.1F;
+  *rty_Speed_Ref *= *rty_Distance_Ref / 188.57F;
 
   /* RelationalOperator: '<S1>/Equal' incorporates:
    *  Constant: '<S1>/Constant9'
@@ -70,7 +70,7 @@ void ltv_lqr_strategy(real32_T rtu_Speed, real32_T rtu_Distance, real32_T
   /* Lookup_n-D: '<S1>/1D Torque from Distance' */
   *rty_Torque_Base =
     code_gen_main_ConstP.uDTorquefromDistance_tableData[plook_u32f_linckan
-    (rtu_Distance, code_gen_main_ConstP.pooled3, 1910U)];
+    (rtu_Distance, code_gen_main_ConstP.uDTorquefromDistance_bp01Data, 1880U)];
 
   /* Switch: '<S1>/Switch2' incorporates:
    *  Constant: '<S1>/Constant'
@@ -90,11 +90,11 @@ void ltv_lqr_strategy(real32_T rtu_Speed, real32_T rtu_Distance, real32_T
      */
     *rty_Torque_Gain = ((*rty_Speed_Ref - rtu_Speed) * look1_iflf_linlcpw
                         (rtu_Laptime, code_gen_main_ConstP.pooled1,
-                         code_gen_main_ConstP.uDK1x1lookup_tableData, 1910U) + (*
+                         code_gen_main_ConstP.uDK1x1lookup_tableData, 1880U) + (*
       rty_Distance_Ref - rtu_Distance) * look1_iflf_linlcpw(rtu_Laptime,
       code_gen_main_ConstP.pooled1, code_gen_main_ConstP.uDK1x2lookup_tableData,
-      1910U)) + look1_iflf_linlcpw(rtu_Laptime, code_gen_main_ConstP.pooled1,
-      code_gen_main_ConstP.uDK1wfflookup_tableData, 1910U) * 0.0F;
+      1880U)) + look1_iflf_linlcpw(rtu_Laptime, code_gen_main_ConstP.pooled1,
+      code_gen_main_ConstP.uDK1wfflookup_tableData, 1880U) * 0.0F;
     rtb_Switch4 = *rty_Torque_Gain;
   } else {
     rtb_Switch4 = 0.0F;

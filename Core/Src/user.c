@@ -207,7 +207,7 @@ void _Pot_Filter() {
  */
 void _Update_Vehicle_State() {
 	vehicle_state.speed = vehicle_state.wheel_rpm * SPEED_MULT_FACTOR;
-	vehicle_state.distance += vehicle_state.speed / 72;
+	vehicle_state.distance += vehicle_state.speed * 0.05;
 	if (vehicle_state.lap_number == 0) {
 		vehicle_state.laptime = OPTIMAL_LAP;
 	} else {
@@ -297,7 +297,7 @@ void _Calculate_MC_Ref() {
 					if (vehicle_state.wheel_rpm < 159.388F) {
 						drive_state.torque_ref_out = 1;
 					} else {
-						drive_state.torque_ref_out = (float)0.381551;
+						drive_state.torque_ref_out = (float)0.387723;
 					}
 					break;
 			}
@@ -369,7 +369,7 @@ void _Calculate_MC_Ref() {
 						if (vehicle_state.wheel_rpm < 159.388F) {
 							drive_state.torque_ref_out = 1;
 						} else {
-							drive_state.torque_ref_out = (float)0.381551;
+							drive_state.torque_ref_out = (float)0.387723;
 						}
 					} else {
 						drive_state.mode = DM_AUTOMATIC_STRATEGY;
@@ -543,6 +543,9 @@ void _Generic_CAN_Send(uint8_t is_ext, uint32_t id, uint8_t bytes, uint8_t *data
 
 void _Send_VCU_State_CAN() {
 	uint8_t data[6];
+
+	// TODO: REMOVE THIS
+//	switch_table_state.A.PESC_SLEEP = RESET;
 
 	data[0] = switch_table_state.A.bits;
 	data[1] = switch_table_state.B.bits;
