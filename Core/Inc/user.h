@@ -139,8 +139,8 @@ typedef union  __attribute__(())
         uint8_t LAP        :1;
         uint8_t TS_L       :1;
         uint8_t TS_R       :1;
-        uint8_t FUNCTION1  :1;
-        uint8_t FUNCTION2  :1;
+        uint8_t RESET      :1;
+        uint8_t FN1        :1;
     };
 } STW_STATE_BUTTONS;
 

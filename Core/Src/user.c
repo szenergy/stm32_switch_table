@@ -207,7 +207,7 @@ void _Pot_Filter() {
  */
 void _Update_Vehicle_State() {
 	vehicle_state.speed = vehicle_state.wheel_rpm * SPEED_MULT_FACTOR;
-	vehicle_state.distance += vehicle_state.speed * 0.05;
+	vehicle_state.distance += vehicle_state.speed / 3.6F * 0.05F;
 	if (vehicle_state.lap_number == 0) {
 		vehicle_state.laptime = OPTIMAL_LAP;
 	} else {
@@ -222,8 +222,8 @@ void _Update_Vehicle_State() {
 	}
 
 	// Steering wheel reset button restarts the switch table
-	if (steering_wheel_state.A.FUNCTION1 == SET) {
-		NVIC_SystemReset();
+	if (steering_wheel_state.A.RESET == SET) {
+		vehicle_state.total_time_diff = 0;
 	}
 }
 
