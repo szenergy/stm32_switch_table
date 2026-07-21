@@ -238,8 +238,7 @@ void _Calculate_MC_Ref() {
 	drive_state.setting = 0;
 	switch_table_state.A.PESC_SLEEP = RESET;
 
-	if (steering_wheel_state.A.REVERSE != SET && steering_wheel_state.A.DRIVE != SET) {
-		switch_table_state.A.PESC_SLEEP = SET;
+	if (switch_table_state.A.AUTONOMOUS == SET) {
 		return;
 	}
 
@@ -262,6 +261,10 @@ void _Calculate_MC_Ref() {
 		&ltv_lqr_internal_state
 	);
 
+	if (steering_wheel_state.A.REVERSE != SET && steering_wheel_state.A.DRIVE != SET) {
+		switch_table_state.A.PESC_SLEEP = SET;
+		return;
+	}
 
 	switch (steering_wheel_state.ROT3) {
 		case ROT_1: // Manual
@@ -386,6 +389,10 @@ void _Calculate_MC_Ref() {
 			break;
 	}
 
+	if (drive_state.mode != drive_state.prev_mode) {
+		_Reset_Simulink_States();
+	}
+
 	if (switch_table_state.A.BRAKE != RESET) {
 		drive_state.torque_ref_out = 0;
 		return;
@@ -395,12 +402,6 @@ void _Calculate_MC_Ref() {
 		drive_state.torque_ref_out = 0;
 	}
 
-	if (drive_state.torque_ref_out < 0) {
-		drive_state.torque_ref_out = 0;
-	} else if (drive_state.torque_ref_out > 1) {
-		drive_state.torque_ref_out = 1;
-	}
-
 	if (drive_state.throttle_pedal > drive_state.torque_ref_out) {
 		drive_state.mode = DM_MANUAL;
 		drive_state.setting = 0;
@@ -408,12 +409,10 @@ void _Calculate_MC_Ref() {
 		switch_table_state.A.PESC_SLEEP = RESET;
 	}
 
-	if (switch_table_state.A.AUTONOMOUS == SET) {
-		switch_table_state.A.PESC_SLEEP = RESET;
-	}
-
-	if (drive_state.mode != drive_state.prev_mode) {
-		_Reset_Simulink_States();
+	if (drive_state.torque_ref_out < 0) {
+		drive_state.torque_ref_out = 0;
+	} else if (drive_state.torque_ref_out > 1) {
+		drive_state.torque_ref_out = 1;
 	}
 
 	if (drive_state.torque_ref_out != 0) {
@@ -543,9 +542,6 @@ void _Generic_CAN_Send(uint8_t is_ext, uint32_t id, uint8_t bytes, uint8_t *data
 
 void _Send_VCU_State_CAN() {
 	uint8_t data[6];
-
-	// TODO: REMOVE THIS
-//	switch_table_state.A.PESC_SLEEP = RESET;
 
 	data[0] = switch_table_state.A.bits;
 	data[1] = switch_table_state.B.bits;
@@ -737,7 +733,7 @@ void User_Loop() {
 	_Send_VCU_State_CAN();
 
 	if (switch_table_state.A.MC_OW == RESET && switch_table_state.A.AUTONOMOUS == RESET) {
-		_Send_MC_Command_CAN(drive_state.torque_ref_out);
+		_Send_MC_Command_CAN();
 	}
 
 	_Send_VCU_Calculated_State_CAN();
