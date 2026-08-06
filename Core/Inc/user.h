@@ -26,12 +26,9 @@
 #define POT_ZERO   (float)2150
 #define POT_MAX    (float)2350
 
-// This number is multiplied by the wheel RPM to get the vehicle speed in km/h
-#define SPEED_MULT_FACTOR (float)0.10376
-
 // Rate limits for changes in torque per 50 milliseconds
 #define RATE_LIMIT_UP   (float)0.05
-#define RATE_LIMIT_DOWN (float)0.25
+#define RATE_LIMIT_DOWN (float)0.05
 
 // The time between wipes is in ticks, each tick is equal to 50 milliseconds
 #define WIPER_PERIOD   (uint16_t)25     // 25 => 1.25s

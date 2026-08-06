@@ -28,13 +28,16 @@ struct {
 } steering_wheel_state; // steering wheel
 
 struct {
-	float wheel_rpm; // rotations per minute
-	float speed;     // kilometers per hour
-	float distance;  // meters
+	float wheel_rpm;       // rotations per minute
+	float speed;           // kilometers per hour
+	float distance;        // total distance in meters
+	float lap_distance;    // lap distance in meters
 	uint8_t lap_number;
-	float laptime;       // seconds
+	float laptime;         // seconds
 	float total_time_diff; // seconds
 } vehicle_state;
+
+float _start_lap_distance;
 
 struct {
 	float torque_gain;
@@ -206,22 +209,23 @@ void _Pot_Filter() {
  * Should be called after getting steering wheel and encoder inputs.
  */
 void _Update_Vehicle_State() {
-	vehicle_state.speed = vehicle_state.wheel_rpm * SPEED_MULT_FACTOR;
-	vehicle_state.distance += vehicle_state.speed / 3.6F * 0.05F;
+	vehicle_state.lap_distance = vehicle_state.distance - _start_lap_distance;
 	if (vehicle_state.lap_number == 0) {
 		vehicle_state.laptime = OPTIMAL_LAP;
 	} else {
 		vehicle_state.laptime += (float)0.05;
 	}
+
+	// if the lap button is pressed and enough time & distance has passed
 	if (steering_wheel_state.A.LAP == SET && \
-	(vehicle_state.lap_number == 0 || (vehicle_state.laptime > LAP_BTN_MIN_TIME && vehicle_state.distance > LAP_BTN_MIN_DISTANCE))) {
+	(vehicle_state.lap_number == 0 || (vehicle_state.laptime > LAP_BTN_MIN_TIME && vehicle_state.lap_distance > LAP_BTN_MIN_DISTANCE))) {
 		vehicle_state.lap_number++;
-		vehicle_state.distance = 0;
 		vehicle_state.total_time_diff +=  vehicle_state.laptime - OPTIMAL_LAP;
 		vehicle_state.laptime = 0;
+		vehicle_state.lap_distance = 0;
+		_start_lap_distance = vehicle_state.distance;
 	}
 
-	// Steering wheel reset button restarts the switch table
 	if (steering_wheel_state.A.RESET == SET) {
 		vehicle_state.total_time_diff = 0;
 	}
@@ -249,7 +253,7 @@ void _Calculate_MC_Ref() {
 	float ltv_lqr_distance_ref = 0;
 	ltv_lqr_strategy(
 		vehicle_state.speed / 3.6F,
-		vehicle_state.distance,
+		vehicle_state.lap_distance,
 		vehicle_state.laptime,
 		vehicle_state.wheel_rpm,
 		vehicle_state.total_time_diff,
@@ -327,9 +331,15 @@ void _Calculate_MC_Ref() {
 		case ROT_4: // Speed hold
 			drive_state.mode = DM_SPEED_HOLD;
 			drive_state.setting = ROT_TO_INT[steering_wheel_state.ROT1];
+
+			//setrpm command
+//			int32_t target = drive_state.setting * 5 / SPEED_MULT_FACTOR * 4 * 3.27;
+//			drive_state.torque_ref_out = target;
+
+			// old
 			uint8_t target_speed = drive_state.setting * 5;
 			simulink_debug.speed_ref = vehicle_state.speed;
-			float pid_temp = (target_speed - vehicle_state.speed) * 0.25F;
+			float pid_temp = (target_speed - vehicle_state.speed) * 0.2F;
 			simulink_debug.torque_base = pid_temp;
 			speed_hold_I += pid_temp * 0.1F;
 			if (speed_hold_I > 1) speed_hold_I = 1;
@@ -359,7 +369,7 @@ void _Calculate_MC_Ref() {
 						simulink_debug.speed_ref = ltv_lqr_speed_ref;
 						simulink_debug.distance_ref = ltv_lqr_distance_ref;
 						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
-						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.distance);
+						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.lap_distance);
 					}
 					break;
 				case ROT_2: // Silesia Ring
@@ -382,7 +392,7 @@ void _Calculate_MC_Ref() {
 						simulink_debug.speed_ref = ltv_lqr_speed_ref;
 						simulink_debug.distance_ref = ltv_lqr_distance_ref;
 						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
-						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.distance);
+						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.lap_distance);
 					}
 					break;
 			}
@@ -409,10 +419,12 @@ void _Calculate_MC_Ref() {
 		switch_table_state.A.PESC_SLEEP = RESET;
 	}
 
-	if (drive_state.torque_ref_out < 0) {
-		drive_state.torque_ref_out = 0;
-	} else if (drive_state.torque_ref_out > 1) {
-		drive_state.torque_ref_out = 1;
+	if (drive_state.mode != DM_SPEED_HOLD) {
+		if (drive_state.torque_ref_out < 0) {
+			drive_state.torque_ref_out = 0;
+		} else if (drive_state.torque_ref_out > 1) {
+			drive_state.torque_ref_out = 1;
+		}
 	}
 
 	if (drive_state.torque_ref_out != 0) {
@@ -497,13 +509,13 @@ void _Receive_CAN() {
 	uint8_t data[8];
 
 	while (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO0, &header, data) == HAL_OK) {
-		if (header.StdId == 0x10) {
+		if (header.StdId == 0x10) {  // AUC myRIO
 			if(data[0] == 0x21){
 				HAL_GPIO_WritePin(SHELL_AUT_RELAY_GPIO_Port, SHELL_AUT_RELAY_Pin, GPIO_PIN_SET);
 			}else{
 				HAL_GPIO_WritePin(SHELL_AUT_RELAY_GPIO_Port, SHELL_AUT_RELAY_Pin, GPIO_PIN_RESET);
 			}
-		} else {
+		} else if (header.StdId == 0x190){  // Steering Wheel
 			steering_wheel_state.A.bits = data[0];
 			steering_wheel_state.ROT1 = data[1];
 			steering_wheel_state.ROT2 = data[2];
@@ -512,7 +524,15 @@ void _Receive_CAN() {
 	}
 
 	while (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO1, &header, data) == HAL_OK) {
-		vehicle_state.wheel_rpm = (((uint16_t)data[0] << 8) | data[1]) / 100;
+		if (header.StdId == 0x123) {  // Encoder
+			vehicle_state.wheel_rpm = (((uint16_t)data[0] << 8) | data[1]) / 100.0F;
+			vehicle_state.speed = (((uint16_t)data[3] << 8) | data[4]) / 100.0F;
+			if (data[2] == 0) {
+				vehicle_state.wheel_rpm *= -1;
+				vehicle_state.speed *= -1;
+			}
+			vehicle_state.distance = (((uint16_t)data[5] << 8) | data[6]) / 20.0F;
+		}
 	}
 }
 
@@ -573,9 +593,9 @@ void _Send_VCU_Calculated_State_CAN() {
 	data_0x150[1] = lap_time_buffer >> 8;
 	data_0x150[2] = lap_time_buffer;
 
-	uint32_t distance_buffer = vehicle_state.distance * 20.0F;
-	data_0x150[3] = distance_buffer >> 8;
-	data_0x150[4] = distance_buffer;
+	uint32_t lap_distance_buffer = vehicle_state.lap_distance * 20.0F;
+	data_0x150[3] = lap_distance_buffer >> 8;
+	data_0x150[4] = lap_distance_buffer;
 
 	data_0x150[5] = drive_state.mode << 4 | drive_state.setting;
 
@@ -615,16 +635,28 @@ void _Send_BMS_Query_CAN() {
 
 void _Send_MC_Command_CAN() {
 	uint8_t data[4];
-	int32_t throttle_buffer = drive_state.torque_ref_out * 100000;
-	if (steering_wheel_state.A.REVERSE == SET) {
-		throttle_buffer = throttle_buffer * -1;
-	}
-	data[0] = throttle_buffer >> 24;
-	data[1] = throttle_buffer >> 16;
-	data[2] = throttle_buffer >> 8;
-	data[3] = throttle_buffer;
+//	if (drive_state.torque_ref_out > 2) {
+//		int32_t rpm_buffer = (int32_t)drive_state.torque_ref_out;
+//		if (steering_wheel_state.A.REVERSE == SET) {
+//			rpm_buffer = rpm_buffer * -1;
+//		}
+//		data[0] = rpm_buffer >> 24;
+//		data[1] = rpm_buffer >> 16;
+//		data[2] = rpm_buffer >> 8;
+//		data[3] = rpm_buffer;
+//		_Generic_CAN_Send(RESET, 0x351, 4, data);
+//	} else {
+		int32_t throttle_buffer = drive_state.torque_ref_out * 100000;
+		if (steering_wheel_state.A.REVERSE == SET) {
+			throttle_buffer = throttle_buffer * -1;
+		}
+		data[0] = throttle_buffer >> 24;
+		data[1] = throttle_buffer >> 16;
+		data[2] = throttle_buffer >> 8;
+		data[3] = throttle_buffer;
 
-	_Generic_CAN_Send(SET, 0xA51, 4, data);
+		_Generic_CAN_Send(SET, 0xA51, 4, data);
+//	}
 }
 
 /**
