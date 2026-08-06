@@ -8,7 +8,7 @@
  *
  * Model version                  : 1.35
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Mon Jun 22 17:55:40 2026
+ * C/C++ source code generated on : Sat Jun 27 10:44:02 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -46,26 +46,26 @@ typedef struct {
   /* Computed Parameter: uDK1x2lookup_tableData
    * Referenced by: '<S1>/1D K1 x2 lookup'
    */
-  real32_T uDK1x2lookup_tableData[1911];
+  real32_T uDK1x2lookup_tableData[1881];
 
-  /* Pooled Parameter (Expression: LTV_LQG_Matrices_Silesia_z22_17650J_t_ref)
+  /* Pooled Parameter (Expression: LTV_LQG_Matrices_Silesia_z22_18031J_t_ref)
    * Referenced by:
    *   '<S1>/1D K1 wff lookup'
    *   '<S1>/1D K1 x1 lookup'
    *   '<S1>/1D K1 x2 lookup'
    *   '<S1>/1D Speed from laptime'
    */
-  real32_T pooled1[1911];
+  real32_T pooled1[1881];
 
   /* Computed Parameter: uDK1x1lookup_tableData
    * Referenced by: '<S1>/1D K1 x1 lookup'
    */
-  real32_T uDK1x1lookup_tableData[1911];
+  real32_T uDK1x1lookup_tableData[1881];
 
   /* Computed Parameter: uDK1wfflookup_tableData
    * Referenced by: '<S1>/1D K1 wff lookup'
    */
-  real32_T uDK1wfflookup_tableData[1911];
+  real32_T uDK1wfflookup_tableData[1881];
 
   /* Computed Parameter: uDPESCLimTorque_tableData
    * Referenced by: '<S1>/1D PESC Lim Torque'
@@ -80,24 +80,27 @@ typedef struct {
   /* Computed Parameter: uDSpeedfromlaptime_tableData
    * Referenced by: '<S1>/1D Speed from laptime'
    */
-  real32_T uDSpeedfromlaptime_tableData[1911];
+  real32_T uDSpeedfromlaptime_tableData[1881];
 
   /* Computed Parameter: uDTorquefromDistance_tableData
    * Referenced by: '<S1>/1D Torque from Distance'
    */
-  real32_T uDTorquefromDistance_tableData[1911];
+  real32_T uDTorquefromDistance_tableData[1881];
 
-  /* Pooled Parameter (Expression: LTV_LQG_Matrices_Silesia_z22_17650J_dist_ref)
-   * Referenced by:
-   *   '<S1>/1D Torque from Distance'
-   *   '<S2>/PESC_sleep_LUT'
+  /* Computed Parameter: uDTorquefromDistance_bp01Data
+   * Referenced by: '<S1>/1D Torque from Distance'
    */
-  real32_T pooled3[1911];
+  real32_T uDTorquefromDistance_bp01Data[1881];
 
   /* Computed Parameter: PESC_sleep_LUT_tableData
    * Referenced by: '<S2>/PESC_sleep_LUT'
    */
   real32_T PESC_sleep_LUT_tableData[1911];
+
+  /* Computed Parameter: PESC_sleep_LUT_bp01Data
+   * Referenced by: '<S2>/PESC_sleep_LUT'
+   */
+  real32_T PESC_sleep_LUT_bp01Data[1911];
 } ConstP_code_gen_main_T;
 
 /* Real-time Model Data Structure */

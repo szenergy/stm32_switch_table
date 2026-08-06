@@ -8,7 +8,7 @@
  *
  * Model version                  : 1.35
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Mon Jun 22 17:55:40 2026
+ * C/C++ source code generated on : Sat Jun 27 10:44:02 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -26,7 +26,7 @@ real32_T pesc_sleep(real32_T rtu_Distance)
 {
   /* Lookup_n-D: '<S2>/PESC_sleep_LUT' */
   return code_gen_main_ConstP.PESC_sleep_LUT_tableData[plook_u32f_linckan
-    (rtu_Distance, code_gen_main_ConstP.pooled3, 1910U)];
+    (rtu_Distance, code_gen_main_ConstP.PESC_sleep_LUT_bp01Data, 1910U)];
 }
 
 /*

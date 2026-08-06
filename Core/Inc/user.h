@@ -15,7 +15,7 @@
 // *** Definitions ***
 
 // Optimal lap time in seconds, used for strategy
-#define OPTIMAL_LAP (float)191.1
+#define OPTIMAL_LAP (float)188.57
 
 // These variables are used for lap button protection
 // Set the minimum time and distance required for the lap button to register again after a press
@@ -26,12 +26,9 @@
 #define POT_ZERO   (float)2150
 #define POT_MAX    (float)2350
 
-// This number is multiplied by the wheel RPM to get the vehicle speed in km/h
-#define SPEED_MULT_FACTOR (float)0.10376
-
 // Rate limits for changes in torque per 50 milliseconds
 #define RATE_LIMIT_UP   (float)0.05
-#define RATE_LIMIT_DOWN (float)0.25
+#define RATE_LIMIT_DOWN (float)0.05
 
 // The time between wipes is in ticks, each tick is equal to 50 milliseconds
 #define WIPER_PERIOD   (uint16_t)25     // 25 => 1.25s
@@ -139,8 +136,8 @@ typedef union  __attribute__(())
         uint8_t LAP        :1;
         uint8_t TS_L       :1;
         uint8_t TS_R       :1;
-        uint8_t FUNCTION1  :1;
-        uint8_t FUNCTION2  :1;
+        uint8_t RESET      :1;
+        uint8_t FN1        :1;
     };
 } STW_STATE_BUTTONS;
 
