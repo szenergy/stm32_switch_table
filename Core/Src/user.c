@@ -30,7 +30,7 @@ struct {
 struct {
 	float wheel_rpm;       // rotations per minute
 	float speed;           // kilometers per hour
-	float distance;        // total distance in meters
+	float total_distance;  // total distance in meters
 	float lap_distance;    // lap distance in meters
 	uint8_t lap_number;
 	float laptime;         // seconds
@@ -97,7 +97,7 @@ void _Reset_Variables() {
 	steering_wheel_state.ROT1 = 0;
 	steering_wheel_state.ROT2 = 0;
 	steering_wheel_state.ROT3 = 0;
-	vehicle_state.distance = 0;
+	vehicle_state.total_distance = 0;
 	vehicle_state.speed = 0;
 	vehicle_state.wheel_rpm = 0;
 	vehicle_state.lap_number = 0;
@@ -209,21 +209,21 @@ void _Pot_Filter() {
  * Should be called after getting steering wheel and encoder inputs.
  */
 void _Update_Vehicle_State() {
-	vehicle_state.lap_distance = vehicle_state.distance - _start_lap_distance;
+	vehicle_state.lap_distance = vehicle_state.total_distance - _start_lap_distance;
 	if (vehicle_state.lap_number == 0) {
-		vehicle_state.laptime = OPTIMAL_LAP;
+		vehicle_state.laptime = OPTIMAL_LAP_TIME;
 	} else {
-		vehicle_state.laptime += (float)0.05;
+		vehicle_state.laptime += 0.05F;
 	}
 
 	// if the lap button is pressed and enough time & distance has passed
 	if (steering_wheel_state.A.LAP == SET && \
 	(vehicle_state.lap_number == 0 || (vehicle_state.laptime > LAP_BTN_MIN_TIME && vehicle_state.lap_distance > LAP_BTN_MIN_DISTANCE))) {
 		vehicle_state.lap_number++;
-		vehicle_state.total_time_diff +=  vehicle_state.laptime - OPTIMAL_LAP;
+		vehicle_state.total_time_diff +=  vehicle_state.laptime - OPTIMAL_LAP_TIME;
 		vehicle_state.laptime = 0;
 		vehicle_state.lap_distance = 0;
-		_start_lap_distance = vehicle_state.distance;
+		_start_lap_distance = vehicle_state.total_distance;
 	}
 
 	if (steering_wheel_state.A.RESET == SET) {
@@ -246,6 +246,9 @@ void _Calculate_MC_Ref() {
 		return;
 	}
 
+#ifdef DEBUG_PINS
+    HAL_GPIO_WritePin(Debug_PC11_GPIO_Port, Debug_PC11_Pin, GPIO_PIN_SET);
+#endif
 	float ltv_lqr_torque_ref_out = 0;
 	float ltv_lqr_torque_base = 0;
 	float ltv_lqr_torque_gain = 0;
@@ -257,6 +260,7 @@ void _Calculate_MC_Ref() {
 		vehicle_state.laptime,
 		vehicle_state.wheel_rpm,
 		vehicle_state.total_time_diff,
+		OPTIMAL_LAP_TIME,
 		&ltv_lqr_torque_ref_out,
 		&ltv_lqr_torque_gain,
 		&ltv_lqr_torque_base,
@@ -264,6 +268,13 @@ void _Calculate_MC_Ref() {
 		&ltv_lqr_distance_ref,
 		&ltv_lqr_internal_state
 	);
+#ifdef DEBUG_PINS
+    HAL_GPIO_WritePin(Debug_PC11_GPIO_Port, Debug_PC11_Pin, GPIO_PIN_RESET);
+#endif
+
+#ifdef UART_DEBUG
+    Debug_Msg("DIST_REF", ltv_lqr_distance_ref);
+#endif
 
 	if (steering_wheel_state.A.REVERSE != SET && steering_wheel_state.A.DRIVE != SET) {
 		switch_table_state.A.PESC_SLEEP = SET;
@@ -531,7 +542,7 @@ void _Receive_CAN() {
 				vehicle_state.wheel_rpm *= -1;
 				vehicle_state.speed *= -1;
 			}
-			vehicle_state.distance = (((uint16_t)data[5] << 8) | data[6]) / 20.0F;
+			vehicle_state.total_distance = (((uint16_t)data[5] << 8) | data[6]) / 20.0F;
 		}
 	}
 }
@@ -621,7 +632,7 @@ void _Send_Simulink_Debug_CAN() {
 	data_0x151[4] = speed_ref_buffer >> 8;
 	data_0x151[5] = speed_ref_buffer;
 
-	uint32_t distance_ref_buffer = simulink_debug.distance_ref * 200.0F;
+	uint32_t distance_ref_buffer = simulink_debug.distance_ref * 20.0F;
 	data_0x151[6] = distance_ref_buffer >> 8;
 	data_0x151[7] = distance_ref_buffer;
 
@@ -730,7 +741,8 @@ void _Reset_Outputs() {
 	HAL_GPIO_WritePin(LED4_Blue_GPIO_Port, LED4_Blue_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(Wiper_DCDC_enable_GPIO_Port, Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(Brake_light_GPIO_Port, Brake_light_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(Debug_PC12_GPIO_Port, Debug_PC12_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(Debug_PC11_GPIO_Port, Debug_PC11_Pin, GPIO_PIN_RESET);
 }
 
 void User_Init(CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UART_HandleTypeDef *uart_ptr) {
@@ -751,7 +763,6 @@ void User_Init(CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UAR
 void User_Loop() {
 	_Read_GPIO_Inputs();
 
-	// break light output is inverted for some reason
 	HAL_GPIO_WritePin(Brake_light_GPIO_Port, Brake_light_Pin, switch_table_state.A.BRAKE == RESET);
 
 	_Receive_CAN();

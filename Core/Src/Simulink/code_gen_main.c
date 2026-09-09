@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.35
+ * Model version                  : 1.36
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Sat Jun 27 10:44:02 2026
+ * C/C++ source code generated on : Mon Aug 24 11:22:28 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -186,7 +186,7 @@ void code_gen_main_step(void)
   real32_T rtb_TorqueRef;
 
   /* Outputs for Atomic SubSystem: '<Root>/LTV - LQR Strategy' */
-  ltv_lqr_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut,
+  ltv_lqr_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut,
                    &rtb_TorqueGain, &rtb_TorqueRef, &rtb_Product5,
                    &rtb_DiscreteTimeIntegrator, &code_gen_main_DW.LTVLQRStrategy);
 

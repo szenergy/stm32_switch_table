@@ -6,9 +6,9 @@
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.35
+ * Model version                  : 1.36
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Sat Jun 27 10:44:02 2026
+ * C/C++ source code generated on : Mon Aug 24 11:22:28 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -33,9 +33,9 @@ typedef struct {
 extern void ltv_lqr_strategy_Init(DW_ltv_lqr_strategy_T *localDW);
 extern void ltv_lqr_strategy(real32_T rtu_Speed, real32_T rtu_Distance, real32_T
   rtu_Laptime, real32_T rtu_RPM, real32_T rtu_Total_Diff, real32_T
-  *rty_Torque_Ref_Out, real32_T *rty_Torque_Gain, real32_T *rty_Torque_Base,
-  real32_T *rty_Speed_Ref, real32_T *rty_Distance_Ref, DW_ltv_lqr_strategy_T
-  *localDW);
+  rtu_OPTIMAL_LAP_TIME, real32_T *rty_Torque_Ref_Out, real32_T *rty_Torque_Gain,
+  real32_T *rty_Torque_Base, real32_T *rty_Speed_Ref, real32_T *rty_Distance_Ref,
+  DW_ltv_lqr_strategy_T *localDW);
 
 #endif                                 /* ltv_lqr_strategy_h_ */
 

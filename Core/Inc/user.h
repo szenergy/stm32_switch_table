@@ -15,7 +15,7 @@
 // *** Definitions ***
 
 // Optimal lap time in seconds, used for strategy
-#define OPTIMAL_LAP (float)188.57
+#define OPTIMAL_LAP_TIME (float)188.57
 
 // These variables are used for lap button protection
 // Set the minimum time and distance required for the lap button to register again after a press
@@ -46,7 +46,7 @@
 // The following are debug options.
 // Uncomment (remove the // from the start) the defines to enable them.
 //#define DEBUG_LEDS            // Debug LEDs on the panel's side
-//#define SLEEP_DEBUG_PIN       // Output sleep/awake state on PC12 pin
+//#define DEBUG_PINS            // Output sleep/awake state on PC12 and LQR execution on PC11
 //#define WIPER_SWEEP_DEBUG     // Moves wiper PWM from 0% fill to 100% slowly
 //#define UART_DEBUG            // Sends some debug values on the UART
 
