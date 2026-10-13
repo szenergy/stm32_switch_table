@@ -14,8 +14,19 @@
 
 // *** Definitions ***
 
+// KUPLUUUUUUNG
+#define ENABLE_CLUTCH_MODE
+#define CLUTCH_GEAR_RATIO			(float)3.27
+// The maximum RPM difference where connecting the clutch gears is considered safe
+#define CLUTCH_SAFE_RANGE			(float)0.05		// Percent value from 0 to 1  (0.05 means 5%)
+
 // Optimal lap time in seconds, used for strategy
-#define OPTIMAL_LAP_TIME (float)188.57
+#define OPTIMAL_LAP_TIME 			 (float)188.57
+// Manual Strategy configuration: RPM used to switch from 100% throttle to the defined value
+#define MANUAL_STRAT_SWITCH_THROTTLE	(float)0.332217618
+#define MANUAL_STRAT_SWITCH_RPM			(float)224
+// Silesia Ring: 159.388 RPM, 0.387723
+// Aumovio test track: 224 RPM, 0.332217618
 
 // These variables are used for lap button protection
 // Set the minimum time and distance required for the lap button to register again after a press
@@ -101,7 +112,7 @@ typedef union  __attribute__(())
         uint8_t LIGHTS_DRL      :1;
         uint8_t LIGHTS_HAZARD   :1;
         uint8_t AUTONOMOUS      :1;
-        uint8_t BRAKE           :1;
+        uint8_t BRAKE_PEDAL     :1;
         uint8_t LIGHTS_ENABLE   :1;
         uint8_t MC_OW           :1;
         uint8_t WIPER           :1;
@@ -116,8 +127,8 @@ typedef union __attribute__(())
     {
         uint8_t RELAY_NO        :1;
         uint8_t RELAY_NC        :1;
-        uint8_t RESERVED1       :1;
-        uint8_t RESERVED2       :1;
+        uint8_t CLUTCH_PEDAL    :1;
+        uint8_t CLUTCH_SYNCED   :1;
         uint8_t RESERVED3       :1;
         uint8_t RESERVED4       :1;
         uint8_t RESERVED5       :1;

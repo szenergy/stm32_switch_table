@@ -1,14 +1,15 @@
 /*
- * Trial License - for use to evaluate programs for possible purchase as
- * an end-user only.
+ * Academic License - for use in teaching, academic research, and meeting
+ * course requirements at degree granting institutions only.  Not for
+ * government, commercial, or other organizational use.
  *
  * File: code_gen_main.c
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.36
+ * Model version                  : 1.37
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Mon Aug 24 11:22:28 2026
+ * C/C++ source code generated on : Mon Oct 12 14:37:01 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -19,6 +20,7 @@
 #include "code_gen_main.h"
 #include "ltv_lqr_strategy.h"
 #include "pesc_sleep.h"
+#include "speed_hold.h"
 #include "rtwtypes.h"
 #include "code_gen_main_private.h"
 
@@ -179,15 +181,15 @@ uint32_T linsearch_u32f(real32_T u, const real32_T bp[], uint32_T startIndex)
 /* Model step function */
 void code_gen_main_step(void)
 {
+  real32_T rtb_CalculateError;
   real32_T rtb_DiscreteTimeIntegrator;
   real32_T rtb_Product5;
   real32_T rtb_ThrottleOut;
   real32_T rtb_TorqueGain;
-  real32_T rtb_TorqueRef;
 
   /* Outputs for Atomic SubSystem: '<Root>/LTV - LQR Strategy' */
-  ltv_lqr_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut,
-                   &rtb_TorqueGain, &rtb_TorqueRef, &rtb_Product5,
+  ltv_lqr_strategy(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, &rtb_ThrottleOut,
+                   &rtb_TorqueGain, &rtb_CalculateError, &rtb_Product5,
                    &rtb_DiscreteTimeIntegrator, &code_gen_main_DW.LTVLQRStrategy);
 
   /* End of Outputs for SubSystem: '<Root>/LTV - LQR Strategy' */
@@ -196,6 +198,12 @@ void code_gen_main_step(void)
   pesc_sleep(0.0F);
 
   /* End of Outputs for SubSystem: '<Root>/PESC Sleep' */
+
+  /* Outputs for Atomic SubSystem: '<Root>/Speed Hold' */
+  speed_hold(0.0F, 0.0F, &rtb_ThrottleOut, &rtb_CalculateError,
+             &code_gen_main_DW.SpeedHold);
+
+  /* End of Outputs for SubSystem: '<Root>/Speed Hold' */
 }
 
 /* Model initialize function */

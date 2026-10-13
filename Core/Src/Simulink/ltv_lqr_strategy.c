@@ -1,14 +1,15 @@
 /*
- * Trial License - for use to evaluate programs for possible purchase as
- * an end-user only.
+ * Academic License - for use in teaching, academic research, and meeting
+ * course requirements at degree granting institutions only.  Not for
+ * government, commercial, or other organizational use.
  *
  * File: ltv_lqr_strategy.c
  *
  * Code generated for Simulink model 'code_gen_main'.
  *
- * Model version                  : 1.36
+ * Model version                  : 1.37
  * Simulink Coder version         : 25.2 (R2025b) 28-Jul-2025
- * C/C++ source code generated on : Mon Aug 24 11:22:28 2026
+ * C/C++ source code generated on : Mon Oct 12 14:37:01 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex-M
@@ -31,27 +32,27 @@ void ltv_lqr_strategy_Init(DW_ltv_lqr_strategy_T *localDW)
 /* Output and update for atomic system: '<Root>/LTV - LQR Strategy' */
 void ltv_lqr_strategy(real32_T rtu_Speed, real32_T rtu_Distance, real32_T
                       rtu_Laptime, real32_T rtu_RPM, real32_T rtu_Total_Diff,
-                      real32_T rtu_OPTIMAL_LAP_TIME, real32_T
-                      *rty_Torque_Ref_Out, real32_T *rty_Torque_Gain, real32_T
-                      *rty_Torque_Base, real32_T *rty_Speed_Ref, real32_T
-                      *rty_Distance_Ref, DW_ltv_lqr_strategy_T *localDW)
+                      real32_T *rty_Torque_Ref_Out, real32_T *rty_Torque_Gain,
+                      real32_T *rty_Torque_Base, real32_T *rty_Speed_Ref,
+                      real32_T *rty_Distance_Ref, DW_ltv_lqr_strategy_T *localDW)
 {
   real32_T rtb_Switch4;
   boolean_T rtb_Equal;
 
   /* Lookup_n-D: '<S1>/1D Speed from laptime' */
-  *rty_Distance_Ref = look1_iflf_linlcpw(rtu_Laptime,
-    code_gen_main_ConstP.pooled1,
+  *rty_Speed_Ref = look1_iflf_linlcpw(rtu_Laptime, code_gen_main_ConstP.pooled1,
     code_gen_main_ConstP.uDSpeedfromlaptime_tableData, 1910U);
 
-  /* Sum: '<S1>/Sum6' */
-  *rty_Speed_Ref = rtu_OPTIMAL_LAP_TIME + rtu_Total_Diff;
+  /* Sum: '<S1>/Sum6' incorporates:
+   *  Constant: '<S1>/Optimal lap time'
+   */
+  *rty_Distance_Ref = rtu_Total_Diff + 188.57F;
 
-  /* Product: '<S1>/Divide' */
-  *rty_Speed_Ref /= rtu_OPTIMAL_LAP_TIME;
-
-  /* Product: '<S1>/Product5' */
-  *rty_Speed_Ref *= *rty_Distance_Ref;
+  /* Product: '<S1>/Product5' incorporates:
+   *  Constant: '<S1>/Optimal lap time'
+   *  Product: '<S1>/Divide'
+   */
+  *rty_Speed_Ref *= *rty_Distance_Ref / 188.57F;
 
   /* RelationalOperator: '<S1>/Equal' incorporates:
    *  Constant: '<S1>/Constant9'
@@ -70,7 +71,7 @@ void ltv_lqr_strategy(real32_T rtu_Speed, real32_T rtu_Distance, real32_T
   /* Lookup_n-D: '<S1>/1D Torque from Distance' */
   *rty_Torque_Base =
     code_gen_main_ConstP.uDTorquefromDistance_tableData[plook_u32f_linckan
-    (rtu_Distance, code_gen_main_ConstP.pooled4, 1910U)];
+    (rtu_Distance, code_gen_main_ConstP.pooled5, 1910U)];
 
   /* Switch: '<S1>/Switch2' incorporates:
    *  Constant: '<S1>/Constant'

@@ -10,6 +10,7 @@
 #include "user.h"
 #include "ltv_lqr_strategy.h"
 #include "pesc_sleep.h"
+#include "speed_hold.h"
 
 #ifdef UART_DEBUG
 #include <stdio.h>
@@ -21,23 +22,29 @@ struct {
 } switch_table_state;
 
 struct {
-	STW_STATE_BUTTONS A;
-	uint8_t ROT1;
-	uint8_t ROT2;
-	uint8_t ROT3;
-} steering_wheel_state; // steering wheel
+	STW_STATE_BUTTONS BTN;
+	uint8_t SETTING;
+	uint8_t TAB;
+	uint8_t MODE;
+} steering_wheel_state;
 
 struct {
 	float wheel_rpm;       // rotations per minute
 	float speed;           // kilometers per hour
-	float total_distance;  // total distance in meters
-	float lap_distance;    // lap distance in meters
+	float total_distance;  // meters
+	float lap_distance;    // meters
 	uint8_t lap_number;
 	float laptime;         // seconds
 	float total_time_diff; // seconds
 } vehicle_state;
 
 float _start_lap_distance;
+
+struct {
+	float pesc_rpm;				// motor RPM
+	uint8_t fully_connected;	// boolean
+	uint8_t is_ramp_up;			// boolean
+} clutch_state;
 
 struct {
 	float torque_gain;
@@ -47,7 +54,7 @@ struct {
 } simulink_debug;
 
 DW_ltv_lqr_strategy_T ltv_lqr_internal_state;
-float speed_hold_I;
+DW_speed_hold_T speed_hold_internal_state;
 
 uint16_t throttle_adc_buffer[10];
 struct {
@@ -76,7 +83,7 @@ CAN_HandleTypeDef *_usr_can;
 TIM_HandleTypeDef *_usr_wiper_pwm;
 UART_HandleTypeDef *_usr_uart;
 
-void _Reset_Simulink_States() {
+void _Reset_Drive_Mode_States() {
 	simulink_debug.torque_base = 0;
 	simulink_debug.torque_gain = 0;
 	simulink_debug.speed_ref = 0;
@@ -84,7 +91,8 @@ void _Reset_Simulink_States() {
 	ltv_lqr_internal_state.DiscreteTimeIntegrator_DSTATE = 0;
 	ltv_lqr_internal_state.DiscreteTimeIntegrator_PrevRese = 0;
 	ltv_lqr_strategy_Init(&ltv_lqr_internal_state);
-	speed_hold_I = 0;
+	speed_hold_internal_state.Filter_DSTATE = 0;
+	speed_hold_internal_state.Integrator_DSTATE = 0;
 }
 
 /**
@@ -93,10 +101,10 @@ void _Reset_Simulink_States() {
 void _Reset_Variables() {
 	switch_table_state.A.bits = 0;
 	switch_table_state.B.bits = 0;
-	steering_wheel_state.A.bits = 0;
-	steering_wheel_state.ROT1 = 0;
-	steering_wheel_state.ROT2 = 0;
-	steering_wheel_state.ROT3 = 0;
+	steering_wheel_state.BTN.bits = 0;
+	steering_wheel_state.SETTING = 0;
+	steering_wheel_state.TAB = 0;
+	steering_wheel_state.MODE = 0;
 	vehicle_state.total_distance = 0;
 	vehicle_state.speed = 0;
 	vehicle_state.wheel_rpm = 0;
@@ -116,7 +124,10 @@ void _Reset_Variables() {
 	wiper_state.step = 0;
 	wiper_state.ARR = 0;
 	smag_init_ARR = 0;
-	_Reset_Simulink_States();
+	_Reset_Drive_Mode_States();
+	clutch_state.pesc_rpm = 0;
+	clutch_state.fully_connected = RESET;
+	clutch_state.is_ramp_up = SET;
 }
 
 
@@ -181,7 +192,7 @@ float _Rate_Limit(float value) {
  * averages and filters the values, then puts it into the `drive_state.throttle_pedal` global.
  * Limits can be configured from `user.h` with the POT_ZERO and POT_MAX variables.
  */
-void _Pot_Filter() {
+void _Process_ACC_Pedal_Pot() {
   uint32_t average = 0;
 	for (uint8_t i = 0; i < 10; i++){
 		average += throttle_adc_buffer[i];
@@ -217,7 +228,7 @@ void _Update_Vehicle_State() {
 	}
 
 	// if the lap button is pressed and enough time & distance has passed
-	if (steering_wheel_state.A.LAP == SET && \
+	if (steering_wheel_state.BTN.LAP == SET && \
 	(vehicle_state.lap_number == 0 || (vehicle_state.laptime > LAP_BTN_MIN_TIME && vehicle_state.lap_distance > LAP_BTN_MIN_DISTANCE))) {
 		vehicle_state.lap_number++;
 		vehicle_state.total_time_diff +=  vehicle_state.laptime - OPTIMAL_LAP_TIME;
@@ -226,8 +237,16 @@ void _Update_Vehicle_State() {
 		_start_lap_distance = vehicle_state.total_distance;
 	}
 
-	if (steering_wheel_state.A.RESET == SET) {
+	if (steering_wheel_state.BTN.RESET == SET) {
 		vehicle_state.total_time_diff = 0;
+	}
+
+	if (
+	(clutch_state.pesc_rpm * CLUTCH_GEAR_RATIO >= vehicle_state.wheel_rpm * (1-CLUTCH_SAFE_RANGE))
+	&&
+	(clutch_state.pesc_rpm * CLUTCH_GEAR_RATIO <= vehicle_state.wheel_rpm * (1+CLUTCH_SAFE_RANGE))
+	) {
+		switch_table_state.B.CLUTCH_SYNCED = SET;
 	}
 }
 
@@ -235,7 +254,7 @@ void _Update_Vehicle_State() {
  * Determines the current drive mode and setting, then calculates the correct throttle reference.
  * Uses lookup tables and values from `user.h` in certain modes.
  */
-void _Calculate_MC_Ref() {
+void _Calculate_Motor_Throttle() {
 	drive_state.prev_mode = drive_state.mode;
 	drive_state.torque_ref_out = 0;
 	drive_state.mode = DM_NEUTRAL;
@@ -260,7 +279,6 @@ void _Calculate_MC_Ref() {
 		vehicle_state.laptime,
 		vehicle_state.wheel_rpm,
 		vehicle_state.total_time_diff,
-		OPTIMAL_LAP_TIME,
 		&ltv_lqr_torque_ref_out,
 		&ltv_lqr_torque_gain,
 		&ltv_lqr_torque_base,
@@ -276,15 +294,15 @@ void _Calculate_MC_Ref() {
     Debug_Msg("DIST_REF", ltv_lqr_distance_ref);
 #endif
 
-	if (steering_wheel_state.A.REVERSE != SET && steering_wheel_state.A.DRIVE != SET) {
+	if (steering_wheel_state.BTN.REVERSE != SET && steering_wheel_state.BTN.DRIVE != SET) {
 		switch_table_state.A.PESC_SLEEP = SET;
 		return;
 	}
 
-	switch (steering_wheel_state.ROT3) {
+	switch (steering_wheel_state.MODE) {
 		case ROT_1: // Manual
 			drive_state.mode = DM_MANUAL;
-			switch (steering_wheel_state.ROT1) {
+			switch (steering_wheel_state.SETTING) {
 				case ROT_1:
 					drive_state.torque_ref_out = 0.8;
 					drive_state.setting = 1;
@@ -301,125 +319,94 @@ void _Calculate_MC_Ref() {
 			break;
 		case ROT_2: // Manual strategy
 			drive_state.mode = DM_MANUAL_STRATEGY;
-			switch (steering_wheel_state.ROT1) {
-				case ROT_1:  // Aumovio test track Z22
-					drive_state.setting = 3;
-					if (vehicle_state.wheel_rpm < 224) {
-						drive_state.torque_ref_out = 1;
-					} else {
-						drive_state.torque_ref_out = (float)0.332217618;
-					}
-					break;
-				case ROT_2: // Silesia Ring Z22
-					drive_state.setting = 1;
-					if (vehicle_state.wheel_rpm < 159.388F) {
-						drive_state.torque_ref_out = 1;
-					} else {
-						drive_state.torque_ref_out = (float)0.387723;
-					}
-					break;
+			drive_state.setting = 0;
+			if (vehicle_state.wheel_rpm < 224) {
+				drive_state.torque_ref_out = 1;
+			} else {
+				drive_state.torque_ref_out = (float)0.332217618;
 			}
-			break;
 		case ROT_3: // Automatic strategy
 			drive_state.mode = DM_AUTOMATIC_STRATEGY;
-			switch (steering_wheel_state.ROT1) {
-				case ROT_1:
-					drive_state.setting = 1;
-					simulink_debug.torque_base = ltv_lqr_torque_base;
-					simulink_debug.torque_gain = ltv_lqr_torque_gain;
-					simulink_debug.speed_ref = ltv_lqr_speed_ref;
-					simulink_debug.distance_ref = ltv_lqr_distance_ref;
-					drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
-					break;
-				case ROT_2:
-//					drive_state.setting = 2;
-//					simulink_debug.torque_base = switching_lqr_torque_base;
-//					simulink_debug.torque_gain = switching_lqr_torque_gain;
-//					drive_state.torque_ref_out = switching_lqr_torque_ref_out;
-					break;
-			}
+			drive_state.setting = 0;
+			simulink_debug.torque_base = ltv_lqr_torque_base;
+			simulink_debug.torque_gain = ltv_lqr_torque_gain;
+			simulink_debug.speed_ref = ltv_lqr_speed_ref;
+			simulink_debug.distance_ref = ltv_lqr_distance_ref;
+			drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
 			break;
 		case ROT_4: // Speed hold
 			drive_state.mode = DM_SPEED_HOLD;
-			drive_state.setting = ROT_TO_INT[steering_wheel_state.ROT1];
-
-			//setrpm command
-//			int32_t target = drive_state.setting * 5 / SPEED_MULT_FACTOR * 4 * 3.27;
-//			drive_state.torque_ref_out = target;
-
-			// old
+			drive_state.setting = ROT_TO_INT[steering_wheel_state.SETTING];
 			uint8_t target_speed = drive_state.setting * 5;
-			simulink_debug.speed_ref = vehicle_state.speed;
-			float pid_temp = (target_speed - vehicle_state.speed) * 0.2F;
-			simulink_debug.torque_base = pid_temp;
-			speed_hold_I += pid_temp * 0.1F;
-			if (speed_hold_I > 1) speed_hold_I = 1;
-			else if (speed_hold_I < -1) speed_hold_I = -1;
-			drive_state.torque_ref_out = pid_temp + speed_hold_I;
-			simulink_debug.torque_gain = speed_hold_I;
+			simulink_debug.speed_ref = target_speed;
+			speed_hold(
+					vehicle_state.speed,
+					target_speed,
+					&drive_state.torque_ref_out,
+					&simulink_debug.torque_gain,
+					&speed_hold_internal_state
+			);
 			break;
 		case ROT_5: // Race mode
-			switch (steering_wheel_state.ROT1) {
-				case ROT_1: // Aumovio test track
-					if (vehicle_state.lap_number == 2) {
-						vehicle_state.total_time_diff = 0;
-					}
-					if (vehicle_state.lap_number <= 1) {
-						drive_state.mode = DM_MANUAL_STRATEGY;
-						drive_state.setting = 3;
-						if (vehicle_state.wheel_rpm < 224) {
-							drive_state.torque_ref_out = 1;
-						} else {
-							drive_state.torque_ref_out = (float)0.332217618;
-						}
-					} else {
-						drive_state.mode = DM_AUTOMATIC_STRATEGY;
-						drive_state.setting = 1;
-						simulink_debug.torque_base = ltv_lqr_torque_base;
-						simulink_debug.torque_gain = ltv_lqr_torque_gain;
-						simulink_debug.speed_ref = ltv_lqr_speed_ref;
-						simulink_debug.distance_ref = ltv_lqr_distance_ref;
-						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
-						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.lap_distance);
-					}
-					break;
-				case ROT_2: // Silesia Ring
-					if (vehicle_state.lap_number == 2) {
-						vehicle_state.total_time_diff = 0;
-					}
-					if (vehicle_state.lap_number <= 1) {
-						drive_state.mode = DM_MANUAL_STRATEGY;
-						drive_state.setting = 1;
-						if (vehicle_state.wheel_rpm < 159.388F) {
-							drive_state.torque_ref_out = 1;
-						} else {
-							drive_state.torque_ref_out = (float)0.387723;
-						}
-					} else {
-						drive_state.mode = DM_AUTOMATIC_STRATEGY;
-						drive_state.setting = 1;
-						simulink_debug.torque_base = ltv_lqr_torque_base;
-						simulink_debug.torque_gain = ltv_lqr_torque_gain;
-						simulink_debug.speed_ref = ltv_lqr_speed_ref;
-						simulink_debug.distance_ref = ltv_lqr_distance_ref;
-						drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
-						switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.lap_distance);
-					}
-					break;
+			if (vehicle_state.lap_number == 2) {
+				vehicle_state.total_time_diff = 0;
+			}
+			if (vehicle_state.lap_number <= 1) {
+				drive_state.mode = DM_MANUAL_STRATEGY;
+				drive_state.setting = 3;
+				if (vehicle_state.wheel_rpm < 224) {
+					drive_state.torque_ref_out = 1;
+				} else {
+					drive_state.torque_ref_out = (float)0.332217618;
+				}
+			} else {
+				drive_state.mode = DM_AUTOMATIC_STRATEGY;
+				drive_state.setting = 1;
+				simulink_debug.torque_base = ltv_lqr_torque_base;
+				simulink_debug.torque_gain = ltv_lqr_torque_gain;
+				simulink_debug.speed_ref = ltv_lqr_speed_ref;
+				simulink_debug.distance_ref = ltv_lqr_distance_ref;
+				drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
+				switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.lap_distance);
 			}
 			break;
 	}
 
 	if (drive_state.mode != drive_state.prev_mode) {
-		_Reset_Simulink_States();
+		_Reset_Drive_Mode_States();
 	}
 
-	if (switch_table_state.A.BRAKE != RESET) {
+	if (switch_table_state.A.BRAKE_PEDAL != RESET) {
 		drive_state.torque_ref_out = 0;
 		return;
 	}
 
-	if (steering_wheel_state.A.ACC != SET) {
+#ifdef ENABLE_CLUTCH_MODE
+	if (switch_table_state.B.CLUTCH_PEDAL != SET || clutch_state.fully_connected != SET) {
+		drive_state.torque_ref_out = 0;
+		return;
+	} else if (switch_table_state.B.CLUTCH_PEDAL == SET && clutch_state.fully_connected == RESET) {
+		drive_state.torque_ref_out = 0;
+		if (vehicle_state.wheel_rpm > 2) {
+			if (clutch_state.is_ramp_up) {
+				if (clutch_state.pesc_rpm * CLUTCH_GEAR_RATIO >= vehicle_state.wheel_rpm * (0.995F+CLUTCH_SAFE_RANGE)) {
+					clutch_state.is_ramp_up = RESET;
+				} else {
+					drive_state.torque_ref_out = 0.16667F;
+				}
+			} else {
+				if (clutch_state.pesc_rpm * CLUTCH_GEAR_RATIO <= vehicle_state.wheel_rpm * (0.995F-CLUTCH_SAFE_RANGE)) {
+					clutch_state.is_ramp_up = SET;
+				} else {
+					drive_state.torque_ref_out = 0.02F;
+				}
+			}
+		}
+		return;
+	}
+#endif
+
+	if (steering_wheel_state.BTN.ACC != SET) {
 		drive_state.torque_ref_out = 0;
 	}
 
@@ -458,7 +445,8 @@ void _Read_GPIO_Inputs() {
 	switch_table_state.A.MC_OW          = HAL_GPIO_ReadPin(Motorcontrol_override_switch_GPIO_Port, Motorcontrol_override_switch_Pin);
 	switch_table_state.A.WIPER          = HAL_GPIO_ReadPin(Wiper_switch_GPIO_Port, Wiper_switch_Pin);
 	switch_table_state.A.LIGHTS_DRL     = HAL_GPIO_ReadPin(Headlight_switch_GPIO_Port, Headlight_switch_Pin);
-	switch_table_state.A.BRAKE          = HAL_GPIO_ReadPin(Brake_pedal_input_GPIO_Port, Brake_pedal_input_Pin);
+	switch_table_state.A.BRAKE_PEDAL    = HAL_GPIO_ReadPin(Brake_pedal_input_GPIO_Port, Brake_pedal_input_Pin);
+	switch_table_state.B.CLUTCH_PEDAL	= HAL_GPIO_ReadPin(Clutch_pedal_input_GPIO_Port, Clutch_pedal_input_Pin);
 }
 
 
@@ -468,39 +456,39 @@ void _Read_GPIO_Inputs() {
  * and 0x123 (encoder) to FIFO1 for easy processing.
  */
 void _Init_CAN() {
-	CAN_FilterTypeDef filter_0x190;
+	CAN_FilterTypeDef filter_fifo0;
 
-	filter_0x190.FilterBank =           14;
-	filter_0x190.SlaveStartFilterBank = 14;
-	filter_0x190.FilterMode =           CAN_FILTERMODE_IDLIST;
-	filter_0x190.FilterScale =          CAN_FILTERSCALE_16BIT;
-	filter_0x190.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-	filter_0x190.FilterActivation =     CAN_FILTER_ENABLE;
+	filter_fifo0.FilterBank =           14;
+	filter_fifo0.SlaveStartFilterBank = 14;
+	filter_fifo0.FilterMode =           CAN_FILTERMODE_IDLIST;
+	filter_fifo0.FilterScale =          CAN_FILTERSCALE_16BIT;
+	filter_fifo0.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+	filter_fifo0.FilterActivation =     CAN_FILTER_ENABLE;
 
-	filter_0x190.FilterIdHigh =     (0x190 << 5);
-	filter_0x190.FilterIdLow =      (0x10  << 5);
-	filter_0x190.FilterMaskIdHigh = (0x190 << 5);
-	filter_0x190.FilterMaskIdLow =  (0x10  << 5);
+	filter_fifo0.FilterIdHigh =     (0x190 << 5);
+	filter_fifo0.FilterIdLow =      (0x10  << 5);
+	filter_fifo0.FilterMaskIdHigh = (0x190 << 5);
+	filter_fifo0.FilterMaskIdLow =  (0x10  << 5);
 
-	if (HAL_CAN_ConfigFilter(_usr_can, &filter_0x190) != HAL_OK) {
+	if (HAL_CAN_ConfigFilter(_usr_can, &filter_fifo0) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_FILTER_CONFIG, SET);
 	}
 
-	CAN_FilterTypeDef filter_0x123;
+	CAN_FilterTypeDef filter_fifo1;
 
-	filter_0x123.FilterBank =           15;
-	filter_0x123.SlaveStartFilterBank = 14;
-	filter_0x123.FilterMode =           CAN_FILTERMODE_IDLIST;
-	filter_0x123.FilterScale =          CAN_FILTERSCALE_16BIT;
-	filter_0x123.FilterFIFOAssignment = CAN_FILTER_FIFO1;
-	filter_0x123.FilterActivation =     CAN_FILTER_ENABLE;
+	filter_fifo1.FilterBank =           15;
+	filter_fifo1.SlaveStartFilterBank = 14;
+	filter_fifo1.FilterMode =           CAN_FILTERMODE_IDLIST;
+	filter_fifo1.FilterScale =          CAN_FILTERSCALE_16BIT;
+	filter_fifo1.FilterFIFOAssignment = CAN_FILTER_FIFO1;
+	filter_fifo1.FilterActivation =     CAN_FILTER_ENABLE;
 
-	filter_0x123.FilterIdHigh =     (0x123 << 5);
-	filter_0x123.FilterIdLow =      (0x123 << 5);
-	filter_0x123.FilterMaskIdHigh = (0x123 << 5);
-	filter_0x123.FilterMaskIdLow =  (0x123 << 5);
+	filter_fifo1.FilterIdHigh =     (0x123 << 5);
+	filter_fifo1.FilterIdLow =      (0x951 << 5);
+	filter_fifo1.FilterMaskIdHigh = (0x123 << 5);
+	filter_fifo1.FilterMaskIdLow =  (0x951 << 5);
 
-	if (HAL_CAN_ConfigFilter(_usr_can, &filter_0x123) != HAL_OK) {
+	if (HAL_CAN_ConfigFilter(_usr_can, &filter_fifo1) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_FILTER_CONFIG, SET);
 	}
 
@@ -515,7 +503,7 @@ void _Init_CAN() {
  * - the button/switch inputs from the steering wheel
  * - the current wheel RPM value from the encoder
  */
-void _Receive_CAN() {
+void _Process_Received_CAN() {
 	CAN_RxHeaderTypeDef header;
 	uint8_t data[8];
 
@@ -527,10 +515,10 @@ void _Receive_CAN() {
 				HAL_GPIO_WritePin(SHELL_AUT_RELAY_GPIO_Port, SHELL_AUT_RELAY_Pin, GPIO_PIN_RESET);
 			}
 		} else if (header.StdId == 0x190){  // Steering Wheel
-			steering_wheel_state.A.bits = data[0];
-			steering_wheel_state.ROT1 = data[1];
-			steering_wheel_state.ROT2 = data[2];
-			steering_wheel_state.ROT3 = data[3];
+			steering_wheel_state.BTN.bits = data[0];
+			steering_wheel_state.SETTING = data[1];
+			steering_wheel_state.TAB = data[2];
+			steering_wheel_state.MODE = data[3];
 		}
 	}
 
@@ -543,6 +531,8 @@ void _Receive_CAN() {
 				vehicle_state.speed *= -1;
 			}
 			vehicle_state.total_distance = (((uint16_t)data[5] << 8) | data[6]) / 20.0F;
+		} else if (header.ExtId == 0x951) { // PESC Status 1
+			clutch_state.pesc_rpm = (int32_t)(data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]) / 4;
 		}
 	}
 }
@@ -644,30 +634,15 @@ void _Send_BMS_Query_CAN() {
 	_Generic_CAN_Send(SET, 0x0400FF80, 8, data);
 }
 
-void _Send_MC_Command_CAN() {
+void _Send_Motor_Throttle_Command_CAN() {
 	uint8_t data[4];
-//	if (drive_state.torque_ref_out > 2) {
-//		int32_t rpm_buffer = (int32_t)drive_state.torque_ref_out;
-//		if (steering_wheel_state.A.REVERSE == SET) {
-//			rpm_buffer = rpm_buffer * -1;
-//		}
-//		data[0] = rpm_buffer >> 24;
-//		data[1] = rpm_buffer >> 16;
-//		data[2] = rpm_buffer >> 8;
-//		data[3] = rpm_buffer;
-//		_Generic_CAN_Send(RESET, 0x351, 4, data);
-//	} else {
-		int32_t throttle_buffer = drive_state.torque_ref_out * 100000;
-		if (steering_wheel_state.A.REVERSE == SET) {
-			throttle_buffer = throttle_buffer * -1;
-		}
-		data[0] = throttle_buffer >> 24;
-		data[1] = throttle_buffer >> 16;
-		data[2] = throttle_buffer >> 8;
-		data[3] = throttle_buffer;
+	int32_t throttle_buffer = drive_state.torque_ref_out * 100000;
+	data[0] = throttle_buffer >> 24;
+	data[1] = throttle_buffer >> 16;
+	data[2] = throttle_buffer >> 8;
+	data[3] = throttle_buffer;
 
-		_Generic_CAN_Send(SET, 0xA51, 4, data);
-//	}
+	_Generic_CAN_Send(SET, 0xA51, 4, data);
 }
 
 /**
@@ -763,20 +738,21 @@ void User_Init(CAN_HandleTypeDef *can_ptr, TIM_HandleTypeDef *wiper_pwm_ptr, UAR
 void User_Loop() {
 	_Read_GPIO_Inputs();
 
-	HAL_GPIO_WritePin(Brake_light_GPIO_Port, Brake_light_Pin, switch_table_state.A.BRAKE == RESET);
+	// Brake pedal to brake lights
+	HAL_GPIO_WritePin(Brake_light_GPIO_Port, Brake_light_Pin, switch_table_state.A.BRAKE_PEDAL == RESET);
 
-	_Receive_CAN();
+	_Process_Received_CAN();
 
-	_Pot_Filter();
+	_Process_ACC_Pedal_Pot();
 
 	_Update_Vehicle_State();
 
-	_Calculate_MC_Ref();
+	_Calculate_Motor_Throttle();
 
 	_Send_VCU_State_CAN();
 
 	if (switch_table_state.A.MC_OW == RESET && switch_table_state.A.AUTONOMOUS == RESET) {
-		_Send_MC_Command_CAN();
+		_Send_Motor_Throttle_Command_CAN();
 	}
 
 	_Send_VCU_Calculated_State_CAN();
