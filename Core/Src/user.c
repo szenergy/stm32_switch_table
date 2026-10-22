@@ -426,9 +426,8 @@ void _Calculate_Motor_Throttle() {
 	(drive_state.torque_ref_out < 0 && rate_limiter.current > 0)) {
 		rate_limiter.current = 0;
 		rate_limiter.prev = 0;
-	} else {
-		drive_state.torque_ref_out = _Rate_Limit(drive_state.torque_ref_out);
 	}
+	drive_state.torque_ref_out = _Rate_Limit(drive_state.torque_ref_out);
 }
 
 void _Read_GPIO_Inputs() {
