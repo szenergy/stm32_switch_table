@@ -18,7 +18,7 @@
 #define ENABLE_CLUTCH_MODE
 #define CLUTCH_GEAR_RATIO			(float)3.27
 // The maximum RPM difference where connecting the clutch gears is considered safe
-#define CLUTCH_SAFE_RANGE			(float)0.05		// Percent value from 0 to 1  (0.05 means 5%)
+#define CLUTCH_SAFE_RANGE			(float)0.08		// Percent value from 0 to 1  (0.05 means 5%)
 
 // Optimal lap time in seconds, used for strategy
 #define OPTIMAL_LAP_TIME 			 (float)188.57
@@ -38,8 +38,8 @@
 #define POT_MAX    (float)2350
 
 // Rate limits for changes in torque per 50 milliseconds
-#define RATE_LIMIT_UP   (float)0.05
-#define RATE_LIMIT_DOWN (float)0.05
+#define RATE_LIMIT_UP   (float)0.025
+#define RATE_LIMIT_DOWN (float)0.025
 
 // The time between wipes is in ticks, each tick is equal to 50 milliseconds
 #define WIPER_PERIOD   (uint16_t)25     // 25 => 1.25s
@@ -125,14 +125,14 @@ typedef union __attribute__(())
     uint8_t bits;
     struct
     {
-        uint8_t RELAY_NO        :1;
-        uint8_t RELAY_NC        :1;
-        uint8_t CLUTCH_PEDAL    :1;
-        uint8_t CLUTCH_SYNCED   :1;
-        uint8_t RESERVED3       :1;
-        uint8_t RESERVED4       :1;
-        uint8_t RESERVED5       :1;
-        uint8_t RESERVED6       :1;
+        uint8_t RELAY_NO			:1;
+        uint8_t RELAY_NC			:1;
+        uint8_t CLUTCH_PEDAL		:1;
+        uint8_t CLUTCH_SYNCED		:1;
+        uint8_t CLUTCH_CONNECTED	:1;
+        uint8_t RESERVED4			:1;
+        uint8_t RESERVED5			:1;
+        uint8_t RESERVED6			:1;
     };
 } VCU_STATE_B;
 

@@ -494,8 +494,10 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, SHELL_AUT_RELAY_Pin|Debug_PC11_Pin|Debug_PC12_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : Headlight_switch_Pin Lights_enable_switch_Pin Autonomous_switch_Pin Motorcontrol_override_switch_Pin */
-  GPIO_InitStruct.Pin = Headlight_switch_Pin|Lights_enable_switch_Pin|Autonomous_switch_Pin|Motorcontrol_override_switch_Pin;
+  /*Configure GPIO pins : Headlight_switch_Pin Lights_enable_switch_Pin Autonomous_switch_Pin Motorcontrol_override_switch_Pin
+                           Clutch_Rear_In_Pin */
+  GPIO_InitStruct.Pin = Headlight_switch_Pin|Lights_enable_switch_Pin|Autonomous_switch_Pin|Motorcontrol_override_switch_Pin
+                          |Clutch_Rear_In_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);

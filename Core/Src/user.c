@@ -38,12 +38,10 @@ struct {
 	float total_time_diff; // seconds
 } vehicle_state;
 
-float _start_lap_distance;
-
 struct {
 	float pesc_rpm;				// motor RPM
-	uint8_t fully_connected;	// boolean
 	uint8_t is_ramp_up;			// boolean
+	uint8_t prev_clutch_pedal;	// boolean
 } clutch_state;
 
 struct {
@@ -126,7 +124,6 @@ void _Reset_Variables() {
 	smag_init_ARR = 0;
 	_Reset_Drive_Mode_States();
 	clutch_state.pesc_rpm = 0;
-	clutch_state.fully_connected = RESET;
 	clutch_state.is_ramp_up = SET;
 }
 
@@ -199,20 +196,12 @@ void _Process_ACC_Pedal_Pot() {
 	}
 	average = average / 10;
 
-#ifdef UART_DEBUG
-	Debug_Msg("POT_ADC_AVG", average);
-#endif
-
   drive_state.throttle_pedal = (average - POT_ZERO) / (POT_MAX - POT_ZERO);
   if (drive_state.throttle_pedal < 0) {
     drive_state.throttle_pedal = 0;
   } else if (drive_state.throttle_pedal > 1) {
     drive_state.throttle_pedal = 1;
   }
-
-#ifdef UART_DEBUG
-	Debug_Msg("POT_ADC_FLTR", average);
-#endif
 }
 
 /**
@@ -220,7 +209,7 @@ void _Process_ACC_Pedal_Pot() {
  * Should be called after getting steering wheel and encoder inputs.
  */
 void _Update_Vehicle_State() {
-	vehicle_state.lap_distance = vehicle_state.total_distance - _start_lap_distance;
+	vehicle_state.lap_distance += vehicle_state.speed / 3.6F * 0.05F;
 	if (vehicle_state.lap_number == 0) {
 		vehicle_state.laptime = OPTIMAL_LAP_TIME;
 	} else {
@@ -234,20 +223,22 @@ void _Update_Vehicle_State() {
 		vehicle_state.total_time_diff +=  vehicle_state.laptime - OPTIMAL_LAP_TIME;
 		vehicle_state.laptime = 0;
 		vehicle_state.lap_distance = 0;
-		_start_lap_distance = vehicle_state.total_distance;
 	}
 
 	if (steering_wheel_state.BTN.RESET == SET) {
 		vehicle_state.total_time_diff = 0;
 	}
 
-	if (
-	(clutch_state.pesc_rpm * CLUTCH_GEAR_RATIO >= vehicle_state.wheel_rpm * (1-CLUTCH_SAFE_RANGE))
-	&&
-	(clutch_state.pesc_rpm * CLUTCH_GEAR_RATIO <= vehicle_state.wheel_rpm * (1+CLUTCH_SAFE_RANGE))
-	) {
-		switch_table_state.B.CLUTCH_SYNCED = SET;
+	if (drive_state.mode != drive_state.prev_mode) {
+		_Reset_Drive_Mode_States();
 	}
+
+	float pesc_to_wheel = clutch_state.pesc_rpm / CLUTCH_GEAR_RATIO;
+	float abs_rpm_diff = vehicle_state.wheel_rpm - pesc_to_wheel;
+	if (abs_rpm_diff < 0) abs_rpm_diff *= -1;
+	switch_table_state.B.CLUTCH_SYNCED = (abs_rpm_diff < 8) ||
+		((pesc_to_wheel >= (vehicle_state.wheel_rpm * (1-CLUTCH_SAFE_RANGE))) &&
+		(pesc_to_wheel <= (vehicle_state.wheel_rpm * (1+CLUTCH_SAFE_RANGE))));
 }
 
 /**
@@ -290,10 +281,6 @@ void _Calculate_Motor_Throttle() {
     HAL_GPIO_WritePin(Debug_PC11_GPIO_Port, Debug_PC11_Pin, GPIO_PIN_RESET);
 #endif
 
-#ifdef UART_DEBUG
-    Debug_Msg("DIST_REF", ltv_lqr_distance_ref);
-#endif
-
 	if (steering_wheel_state.BTN.REVERSE != SET && steering_wheel_state.BTN.DRIVE != SET) {
 		switch_table_state.A.PESC_SLEEP = SET;
 		return;
@@ -302,28 +289,28 @@ void _Calculate_Motor_Throttle() {
 	switch (steering_wheel_state.MODE) {
 		case ROT_1: // Manual
 			drive_state.mode = DM_MANUAL;
-			switch (steering_wheel_state.SETTING) {
-				case ROT_1:
-					drive_state.torque_ref_out = 0.8;
-					drive_state.setting = 1;
-					break;
-				case ROT_2:
-					drive_state.torque_ref_out = 0.9;
-					drive_state.setting = 2;
-					break;
-				case ROT_3:
-					drive_state.torque_ref_out = 1;
-					drive_state.setting = 3;
-					break;
-			}
+			drive_state.setting = ROT_TO_INT[steering_wheel_state.SETTING];
+			drive_state.torque_ref_out = drive_state.setting * 0.125F;
 			break;
 		case ROT_2: // Manual strategy
 			drive_state.mode = DM_MANUAL_STRATEGY;
-			drive_state.setting = 0;
-			if (vehicle_state.wheel_rpm < 224) {
-				drive_state.torque_ref_out = 1;
-			} else {
-				drive_state.torque_ref_out = (float)0.332217618;
+			switch (steering_wheel_state.SETTING) {
+				case ROT_1:
+					drive_state.setting = 1; // Aumovio
+					if (vehicle_state.wheel_rpm < 224) {
+						drive_state.torque_ref_out = 1;
+					} else {
+						drive_state.torque_ref_out = 0.332217618F;
+					}
+					break;
+				case ROT_2:
+					drive_state.setting = 2; // Silesia Ring
+					if (vehicle_state.wheel_rpm < 159.338F) {
+						drive_state.torque_ref_out = 1;
+					} else {
+						drive_state.torque_ref_out = 0.387723F;
+					}
+					break;
 			}
 		case ROT_3: // Automatic strategy
 			drive_state.mode = DM_AUTOMATIC_STRATEGY;
@@ -357,7 +344,7 @@ void _Calculate_Motor_Throttle() {
 				if (vehicle_state.wheel_rpm < 224) {
 					drive_state.torque_ref_out = 1;
 				} else {
-					drive_state.torque_ref_out = (float)0.332217618;
+					drive_state.torque_ref_out = 0.332217618F;
 				}
 			} else {
 				drive_state.mode = DM_AUTOMATIC_STRATEGY;
@@ -372,81 +359,90 @@ void _Calculate_Motor_Throttle() {
 			break;
 	}
 
-	if (drive_state.mode != drive_state.prev_mode) {
-		_Reset_Drive_Mode_States();
-	}
-
 	if (switch_table_state.A.BRAKE_PEDAL != RESET) {
 		drive_state.torque_ref_out = 0;
-		return;
+	}
+
+	if (steering_wheel_state.BTN.REVERSE == SET && steering_wheel_state.BTN.DRIVE == RESET) {
+		drive_state.torque_ref_out *= -1;
 	}
 
 #ifdef ENABLE_CLUTCH_MODE
-	if (switch_table_state.B.CLUTCH_PEDAL != SET || clutch_state.fully_connected != SET) {
-		drive_state.torque_ref_out = 0;
-		return;
-	} else if (switch_table_state.B.CLUTCH_PEDAL == SET && clutch_state.fully_connected == RESET) {
-		drive_state.torque_ref_out = 0;
-		if (vehicle_state.wheel_rpm > 2) {
-			if (clutch_state.is_ramp_up) {
-				if (clutch_state.pesc_rpm * CLUTCH_GEAR_RATIO >= vehicle_state.wheel_rpm * (0.995F+CLUTCH_SAFE_RANGE)) {
-					clutch_state.is_ramp_up = RESET;
-				} else {
-					drive_state.torque_ref_out = 0.16667F;
-				}
-			} else {
-				if (clutch_state.pesc_rpm * CLUTCH_GEAR_RATIO <= vehicle_state.wheel_rpm * (0.995F-CLUTCH_SAFE_RANGE)) {
-					clutch_state.is_ramp_up = SET;
-				} else {
-					drive_state.torque_ref_out = 0.02F;
-				}
-			}
-		}
-		return;
-	}
-#endif
-
-	if (steering_wheel_state.BTN.ACC != SET) {
-		drive_state.torque_ref_out = 0;
-	}
-
-	if (drive_state.throttle_pedal > drive_state.torque_ref_out) {
-		drive_state.mode = DM_MANUAL;
-		drive_state.setting = 0;
-		drive_state.torque_ref_out = drive_state.throttle_pedal;
-		switch_table_state.A.PESC_SLEEP = RESET;
-	}
-
-	if (drive_state.mode != DM_SPEED_HOLD) {
-		if (drive_state.torque_ref_out < 0) {
-			drive_state.torque_ref_out = 0;
-		} else if (drive_state.torque_ref_out > 1) {
-			drive_state.torque_ref_out = 1;
-		}
-	}
-
-	if (drive_state.torque_ref_out != 0) {
-		drive_state.torque_ref_out = _Rate_Limit(drive_state.torque_ref_out);
-	} else {
+	if (switch_table_state.B.CLUTCH_PEDAL != SET) {
 		rate_limiter.current = 0;
 		rate_limiter.prev = 0;
+		drive_state.torque_ref_out = 0;
+		clutch_state.is_ramp_up = SET;
+		return;
+	} else if (switch_table_state.B.CLUTCH_PEDAL == SET && switch_table_state.B.CLUTCH_CONNECTED == RESET) {
+		drive_state.torque_ref_out = 0.002F;
+		float abs_pesc_to_wheel = clutch_state.pesc_rpm / CLUTCH_GEAR_RATIO;
+		if (abs_pesc_to_wheel < 0) abs_pesc_to_wheel *= -1;
+		float abs_wheel_rpm = vehicle_state.wheel_rpm;
+		if (abs_wheel_rpm < 0) abs_wheel_rpm *= -1;
+		float wheel_max = abs_wheel_rpm * (1+0.05);
+		float wheel_min = abs_wheel_rpm * (1-0.05);
+		if (wheel_min < 1) wheel_min = 1;
+		if (clutch_state.prev_clutch_pedal == RESET) {
+			drive_state.torque_ref_out = 0.08F;
+			return;
+		}
+		if (clutch_state.is_ramp_up == SET && abs_pesc_to_wheel >= wheel_max) clutch_state.is_ramp_up = RESET;
+		else if (clutch_state.is_ramp_up == RESET && abs_pesc_to_wheel <= wheel_min) clutch_state.is_ramp_up = SET;
+		if (abs_pesc_to_wheel < wheel_min) drive_state.torque_ref_out = 0.035F;
+		else if (clutch_state.is_ramp_up == SET) {
+//			drive_state.torque_ref_out = 0.015F;
+			drive_state.torque_ref_out = (wheel_max - abs_pesc_to_wheel) / 900;
+			if (drive_state.torque_ref_out < 0.006F) drive_state.torque_ref_out = 0.006F;
+			else if (drive_state.torque_ref_out > 0.066F) drive_state.torque_ref_out = 0.066F;
+		}
+		else drive_state.torque_ref_out = 0.006F;
+		if (vehicle_state.wheel_rpm < 0) drive_state.torque_ref_out *= -1;
+		return;
 	}
-
-
-#ifdef UART_DEBUG
-	Debug_Msg("MC_REF", drive_state.torque_ref_out);
 #endif
+
+//	if (steering_wheel_state.BTN.ACC != SET) {
+//		drive_state.torque_ref_out = 0;
+//	}
+
+//	if (drive_state.throttle_pedal > drive_state.torque_ref_out) {
+//		drive_state.mode = DM_MANUAL;
+//		drive_state.setting = 0;
+//		drive_state.torque_ref_out = drive_state.throttle_pedal;
+//		switch_table_state.A.PESC_SLEEP = RESET;
+//	}
+
+//	if (drive_state.mode != DM_SPEED_HOLD) {
+//		if (drive_state.torque_ref_out < 0) {
+//			drive_state.torque_ref_out = 0;
+//		} else if (drive_state.torque_ref_out > 1) {
+//			drive_state.torque_ref_out = 1;
+//		}
+//	}
+
+	if (drive_state.torque_ref_out == 0 ||
+	(drive_state.torque_ref_out > 0 && rate_limiter.current < 0) ||
+	(drive_state.torque_ref_out < 0 && rate_limiter.current > 0)) {
+		rate_limiter.current = 0;
+		rate_limiter.prev = 0;
+	} else {
+		drive_state.torque_ref_out = _Rate_Limit(drive_state.torque_ref_out);
+	}
 }
 
 void _Read_GPIO_Inputs() {
-	switch_table_state.A.AUTONOMOUS     = HAL_GPIO_ReadPin(Autonomous_switch_GPIO_Port, Autonomous_switch_Pin);
-	switch_table_state.A.LIGHTS_HAZARD  = HAL_GPIO_ReadPin(Hazard_switch_GPIO_Port, Hazard_switch_Pin);
-	switch_table_state.A.LIGHTS_ENABLE  = HAL_GPIO_ReadPin(Lights_enable_switch_GPIO_Port, Lights_enable_switch_Pin);
-	switch_table_state.A.MC_OW          = HAL_GPIO_ReadPin(Motorcontrol_override_switch_GPIO_Port, Motorcontrol_override_switch_Pin);
-	switch_table_state.A.WIPER          = HAL_GPIO_ReadPin(Wiper_switch_GPIO_Port, Wiper_switch_Pin);
-	switch_table_state.A.LIGHTS_DRL     = HAL_GPIO_ReadPin(Headlight_switch_GPIO_Port, Headlight_switch_Pin);
-	switch_table_state.A.BRAKE_PEDAL    = HAL_GPIO_ReadPin(Brake_pedal_input_GPIO_Port, Brake_pedal_input_Pin);
-	switch_table_state.B.CLUTCH_PEDAL	= HAL_GPIO_ReadPin(Clutch_pedal_input_GPIO_Port, Clutch_pedal_input_Pin);
+	switch_table_state.A.AUTONOMOUS     	= HAL_GPIO_ReadPin(Autonomous_switch_GPIO_Port, Autonomous_switch_Pin);
+	switch_table_state.A.LIGHTS_HAZARD  	= HAL_GPIO_ReadPin(Hazard_switch_GPIO_Port, Hazard_switch_Pin);
+	switch_table_state.A.LIGHTS_ENABLE  	= HAL_GPIO_ReadPin(Lights_enable_switch_GPIO_Port, Lights_enable_switch_Pin);
+	switch_table_state.A.MC_OW          	= HAL_GPIO_ReadPin(Motorcontrol_override_switch_GPIO_Port, Motorcontrol_override_switch_Pin);
+	switch_table_state.A.WIPER          	= HAL_GPIO_ReadPin(Wiper_switch_GPIO_Port, Wiper_switch_Pin);
+	switch_table_state.A.LIGHTS_DRL     	= HAL_GPIO_ReadPin(Headlight_switch_GPIO_Port, Headlight_switch_Pin);
+	switch_table_state.A.BRAKE_PEDAL    	= HAL_GPIO_ReadPin(Brake_pedal_input_GPIO_Port, Brake_pedal_input_Pin);
+	clutch_state.prev_clutch_pedal = switch_table_state.B.CLUTCH_PEDAL;
+	switch_table_state.B.CLUTCH_PEDAL		= HAL_GPIO_ReadPin(Clutch_pedal_input_GPIO_Port, Clutch_pedal_input_Pin);
+	switch_table_state.B.CLUTCH_CONNECTED	= HAL_GPIO_ReadPin(Clutch_Rear_In_GPIO_Port, Clutch_Rear_In_Pin);
+	HAL_GPIO_WritePin(LED4_Blue_GPIO_Port, LED4_Blue_Pin, switch_table_state.B.CLUTCH_CONNECTED);
 }
 
 
@@ -479,14 +475,14 @@ void _Init_CAN() {
 	filter_fifo1.FilterBank =           15;
 	filter_fifo1.SlaveStartFilterBank = 14;
 	filter_fifo1.FilterMode =           CAN_FILTERMODE_IDLIST;
-	filter_fifo1.FilterScale =          CAN_FILTERSCALE_16BIT;
+	filter_fifo1.FilterScale =          CAN_FILTERSCALE_32BIT;
 	filter_fifo1.FilterFIFOAssignment = CAN_FILTER_FIFO1;
 	filter_fifo1.FilterActivation =     CAN_FILTER_ENABLE;
 
 	filter_fifo1.FilterIdHigh =     (0x123 << 5);
-	filter_fifo1.FilterIdLow =      (0x951 << 5);
-	filter_fifo1.FilterMaskIdHigh = (0x123 << 5);
-	filter_fifo1.FilterMaskIdLow =  (0x951 << 5);
+	filter_fifo1.FilterIdLow =      0x0000;
+	filter_fifo1.FilterMaskIdHigh = ((0x951 << 3) >> 16) & 0xFFFF;
+	filter_fifo1.FilterMaskIdLow =  ((0x951 << 3) & 0xFFFF) | CAN_ID_EXT;
 
 	if (HAL_CAN_ConfigFilter(_usr_can, &filter_fifo1) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_FILTER_CONFIG, SET);
@@ -523,7 +519,7 @@ void _Process_Received_CAN() {
 	}
 
 	while (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO1, &header, data) == HAL_OK) {
-		if (header.StdId == 0x123) {  // Encoder
+		if (header.IDE == CAN_ID_STD && header.StdId == 0x123) {  // Encoder
 			vehicle_state.wheel_rpm = (((uint16_t)data[0] << 8) | data[1]) / 100.0F;
 			vehicle_state.speed = (((uint16_t)data[3] << 8) | data[4]) / 100.0F;
 			if (data[2] == 0) {
@@ -531,7 +527,7 @@ void _Process_Received_CAN() {
 				vehicle_state.speed *= -1;
 			}
 			vehicle_state.total_distance = (((uint16_t)data[5] << 8) | data[6]) / 20.0F;
-		} else if (header.ExtId == 0x951) { // PESC Status 1
+		} else if (header.IDE == CAN_ID_EXT && header.ExtId == 0x951) { // PESC Status 1
 			clutch_state.pesc_rpm = (int32_t)(data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]) / 4;
 		}
 	}
@@ -702,10 +698,6 @@ void _Wiper_Tick(uint8_t wiper_switch) {
 		wiper_state.step = 0;
 		break;
 	}
-#ifdef UART_DEBUG
-	Debug_Msg("WIPER_RUN", wiper_state.running);
-	Debug_Msg("WIPER_STEP", wiper_state.step);
-#endif
 }
 
 

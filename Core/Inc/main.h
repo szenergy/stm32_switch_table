@@ -83,6 +83,8 @@ void Error_Handler(void);
 #define Brake_light_GPIO_Port GPIOB
 #define SHELL_AUT_RELAY_Pin GPIO_PIN_7
 #define SHELL_AUT_RELAY_GPIO_Port GPIOC
+#define Clutch_Rear_In_Pin GPIO_PIN_9
+#define Clutch_Rear_In_GPIO_Port GPIOC
 #define Clutch_pedal_input_Pin GPIO_PIN_8
 #define Clutch_pedal_input_GPIO_Port GPIOA
 #define Brake_pedal_input_Pin GPIO_PIN_9
