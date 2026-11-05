@@ -529,11 +529,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Clutch_pedal_input_Pin Brake_pedal_input_Pin */
-  GPIO_InitStruct.Pin = Clutch_pedal_input_Pin|Brake_pedal_input_Pin;
+  /*Configure GPIO pin : Clutch_pedal_input_Pin */
+  GPIO_InitStruct.Pin = Clutch_pedal_input_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(Clutch_pedal_input_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Brake_pedal_input_Pin */
+  GPIO_InitStruct.Pin = Brake_pedal_input_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(Brake_pedal_input_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Wiper_DCDC_enable_Pin */
   GPIO_InitStruct.Pin = Wiper_DCDC_enable_Pin;
