@@ -15,7 +15,6 @@
 // *** Definitions ***
 
 // KUPLUUUUUUNG
-#define ENABLE_CLUTCH_MODE
 #define CLUTCH_GEAR_RATIO			(float)3.27
 // The maximum RPM difference where connecting the clutch gears is considered safe
 #define CLUTCH_SAFE_RANGE			(float)0.08		// Percent value from 0 to 1  (0.05 means 5%)
@@ -37,7 +36,7 @@
 #define POT_ZERO   (float)2150
 #define POT_MAX    (float)2350
 
-// Rate limits for changes in torque per 50 milliseconds
+// Rate limits for changes in load signal per 50 milliseconds
 #define RATE_LIMIT_UP   (float)0.025
 #define RATE_LIMIT_DOWN (float)0.025
 
@@ -94,15 +93,6 @@ void User_Error_Handler(USER_ERROR err, uint8_t fatal);
 
 
 // *** Data structures and types ***
-
-
-typedef enum {
-	DM_NEUTRAL,
-	DM_MANUAL,
-	DM_MANUAL_STRATEGY,
-	DM_AUTOMATIC_STRATEGY,
-	DM_SPEED_HOLD
-} DRIVE_MODE_ENUM;
 
 typedef union  __attribute__(())
 {
@@ -162,6 +152,17 @@ typedef enum {
 	ROT_7 = 32,
 	ROT_8 = 64
 } ROT_POS_ENUM;
+
+typedef enum {
+	ROT_A = 0,
+	ROT_B = 1,
+	ROT_C = 2,
+	ROT_D = 4,
+	ROT_E = 8,
+	ROT_F = 16,
+	ROT_G = 32,
+	ROT_H = 64
+} ROT_POS_ENUM_ABC;
 
 #define ROT_TO_INT (uint8_t[]){[ROT_1] = 1, [ROT_2] = 2, [ROT_3] = 3, [ROT_4] = 4, [ROT_5] = 5, [ROT_6] = 6, [ROT_7] = 7, [ROT_8] = 8}
 

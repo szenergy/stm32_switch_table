@@ -287,41 +287,36 @@ void _Calculate_Motor_Throttle() {
 	}
 
 	switch (steering_wheel_state.MODE) {
-		case ROT_1: // Manual
-			drive_state.mode = DM_MANUAL;
+		case ROT_A: // Manual
+			drive_state.mode = 1;
 			drive_state.setting = ROT_TO_INT[steering_wheel_state.SETTING];
 			drive_state.torque_ref_out = drive_state.setting * 0.125F;
 			break;
-		case ROT_2: // Manual strategy
-			drive_state.mode = DM_MANUAL_STRATEGY;
-			switch (steering_wheel_state.SETTING) {
-				case ROT_1:
-					drive_state.setting = 1; // Aumovio
-					if (vehicle_state.wheel_rpm < 224) {
-						drive_state.torque_ref_out = 1;
-					} else {
-						drive_state.torque_ref_out = 0.332217618F;
-					}
-					break;
-				case ROT_2:
-					drive_state.setting = 2; // Silesia Ring
-					if (vehicle_state.wheel_rpm < 159.338F) {
-						drive_state.torque_ref_out = 1;
-					} else {
-						drive_state.torque_ref_out = 0.387723F;
-					}
-					break;
+		case ROT_B: // Manual strategy
+			drive_state.mode = 2;
+			drive_state.setting = 1; // Aumovio
+			if (vehicle_state.wheel_rpm < 224) {
+				drive_state.torque_ref_out = 1;
+			} else {
+				drive_state.torque_ref_out = 0.332217618F;
 			}
-		case ROT_3: // Automatic strategy
+//			drive_state.setting = 2; // Silesia Ring
+//			if (vehicle_state.wheel_rpm < 159.338F) {
+//				drive_state.torque_ref_out = 1;
+//			} else {
+//				drive_state.torque_ref_out = 0.387723F;
+//			}
+			break;
+		case ROT_C: // Automatic strategy
 			drive_state.mode = DM_AUTOMATIC_STRATEGY;
-			drive_state.setting = 0;
+			drive_state.setting = 1;
 			simulink_debug.torque_base = ltv_lqr_torque_base;
 			simulink_debug.torque_gain = ltv_lqr_torque_gain;
 			simulink_debug.speed_ref = ltv_lqr_speed_ref;
 			simulink_debug.distance_ref = ltv_lqr_distance_ref;
 			drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
 			break;
-		case ROT_4: // Speed hold
+		case ROT_D: // Speed hold
 			drive_state.mode = DM_SPEED_HOLD;
 			drive_state.setting = ROT_TO_INT[steering_wheel_state.SETTING];
 			uint8_t target_speed = drive_state.setting * 5;
@@ -334,29 +329,29 @@ void _Calculate_Motor_Throttle() {
 					&speed_hold_internal_state
 			);
 			break;
-		case ROT_5: // Race mode
-			if (vehicle_state.lap_number == 2) {
-				vehicle_state.total_time_diff = 0;
-			}
-			if (vehicle_state.lap_number <= 1) {
-				drive_state.mode = DM_MANUAL_STRATEGY;
-				drive_state.setting = 3;
-				if (vehicle_state.wheel_rpm < 224) {
-					drive_state.torque_ref_out = 1;
-				} else {
-					drive_state.torque_ref_out = 0.332217618F;
-				}
-			} else {
-				drive_state.mode = DM_AUTOMATIC_STRATEGY;
-				drive_state.setting = 1;
-				simulink_debug.torque_base = ltv_lqr_torque_base;
-				simulink_debug.torque_gain = ltv_lqr_torque_gain;
-				simulink_debug.speed_ref = ltv_lqr_speed_ref;
-				simulink_debug.distance_ref = ltv_lqr_distance_ref;
-				drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
-				switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.lap_distance);
-			}
-			break;
+//		case ROT_5: // Race mode
+//			if (vehicle_state.lap_number == 2) {
+//				vehicle_state.total_time_diff = 0;
+//			}
+//			if (vehicle_state.lap_number <= 1) {
+//				drive_state.mode = DM_MANUAL_STRATEGY;
+//				drive_state.setting = 3;
+//				if (vehicle_state.wheel_rpm < 224) {
+//					drive_state.torque_ref_out = 1;
+//				} else {
+//					drive_state.torque_ref_out = 0.332217618F;
+//				}
+//			} else {
+//				drive_state.mode = DM_AUTOMATIC_STRATEGY;
+//				drive_state.setting = 1;
+//				simulink_debug.torque_base = ltv_lqr_torque_base;
+//				simulink_debug.torque_gain = ltv_lqr_torque_gain;
+//				simulink_debug.speed_ref = ltv_lqr_speed_ref;
+//				simulink_debug.distance_ref = ltv_lqr_distance_ref;
+//				drive_state.torque_ref_out = ltv_lqr_torque_ref_out;
+//				switch_table_state.A.PESC_SLEEP = pesc_sleep(vehicle_state.lap_distance);
+//			}
+//			break;
 	}
 
 	if (switch_table_state.A.BRAKE_PEDAL != RESET) {
@@ -367,7 +362,14 @@ void _Calculate_Motor_Throttle() {
 		drive_state.torque_ref_out *= -1;
 	}
 
-#ifdef ENABLE_CLUTCH_MODE
+//	emergency override for clutch safety
+	if (switch_table_state.A.MC_OW == SET) {
+		switch_table_state.B.CLUTCH_CONNECTED = steering_wheel_state.BTN.ACC;
+		switch_table_state.B.CLUTCH_PEDAL = drive_state.throttle_pedal > 0.1F;
+		switch_table_state.A.PESC_SLEEP = RESET;
+	}
+
+//	ensure clutch is synced
 	if (switch_table_state.B.CLUTCH_PEDAL != SET) {
 		rate_limiter.current = 0;
 		rate_limiter.prev = 0;
@@ -375,6 +377,7 @@ void _Calculate_Motor_Throttle() {
 		clutch_state.is_ramp_up = SET;
 		return;
 	} else if (switch_table_state.B.CLUTCH_PEDAL == SET && switch_table_state.B.CLUTCH_CONNECTED == RESET) {
+		switch_table_state.A.PESC_SLEEP = RESET;
 		drive_state.torque_ref_out = 0.002F;
 		float abs_pesc_to_wheel = clutch_state.pesc_rpm / CLUTCH_GEAR_RATIO;
 		if (abs_pesc_to_wheel < 0) abs_pesc_to_wheel *= -1;
@@ -400,18 +403,17 @@ void _Calculate_Motor_Throttle() {
 		if (vehicle_state.wheel_rpm < 0) drive_state.torque_ref_out *= -1;
 		return;
 	}
-#endif
 
 //	if (steering_wheel_state.BTN.ACC != SET) {
 //		drive_state.torque_ref_out = 0;
 //	}
 
-//	if (drive_state.throttle_pedal > drive_state.torque_ref_out) {
-//		drive_state.mode = DM_MANUAL;
-//		drive_state.setting = 0;
-//		drive_state.torque_ref_out = drive_state.throttle_pedal;
-//		switch_table_state.A.PESC_SLEEP = RESET;
-//	}
+	if (drive_state.throttle_pedal > 0.1F) {
+		drive_state.mode = DM_MANUAL;
+		drive_state.setting = 0;
+		drive_state.torque_ref_out = drive_state.throttle_pedal;
+		switch_table_state.A.PESC_SLEEP = RESET;
+	}
 
 //	if (drive_state.mode != DM_SPEED_HOLD) {
 //		if (drive_state.torque_ref_out < 0) {
@@ -440,7 +442,7 @@ void _Read_GPIO_Inputs() {
 	switch_table_state.A.BRAKE_PEDAL    	= HAL_GPIO_ReadPin(Brake_pedal_input_GPIO_Port, Brake_pedal_input_Pin);
 	clutch_state.prev_clutch_pedal = switch_table_state.B.CLUTCH_PEDAL;
 	switch_table_state.B.CLUTCH_PEDAL		= HAL_GPIO_ReadPin(Clutch_pedal_input_GPIO_Port, Clutch_pedal_input_Pin);
-	switch_table_state.B.CLUTCH_CONNECTED	= HAL_GPIO_ReadPin(Clutch_Rear_In_GPIO_Port, Clutch_Rear_In_Pin);
+//	switch_table_state.B.CLUTCH_CONNECTED	= HAL_GPIO_ReadPin(Clutch_Rear_In_GPIO_Port, Clutch_Rear_In_Pin);
 	HAL_GPIO_WritePin(LED4_Blue_GPIO_Port, LED4_Blue_Pin, switch_table_state.B.CLUTCH_CONNECTED);
 }
 
@@ -466,6 +468,24 @@ void _Init_CAN() {
 	filter_fifo0.FilterMaskIdLow =  (0x10  << 5);
 
 	if (HAL_CAN_ConfigFilter(_usr_can, &filter_fifo0) != HAL_OK) {
+		User_Error_Handler(UERR_CAN_FILTER_CONFIG, SET);
+	}
+
+	CAN_FilterTypeDef filter_fifo0_1;
+
+	filter_fifo0_1.FilterBank =           16;
+	filter_fifo0_1.SlaveStartFilterBank = 14;
+	filter_fifo0_1.FilterMode =           CAN_FILTERMODE_IDLIST;
+	filter_fifo0_1.FilterScale =          CAN_FILTERSCALE_32BIT;
+	filter_fifo0_1.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+	filter_fifo0_1.FilterActivation =     CAN_FILTER_ENABLE;
+
+	filter_fifo0_1.FilterIdHigh =     ((0xB051 << 3) >> 16) & 0xFFFF;
+	filter_fifo0_1.FilterIdLow =      ((0xB051 << 3) & 0xFFFF) | CAN_ID_EXT;
+	filter_fifo0_1.FilterMaskIdHigh = ((0xB051 << 3) >> 16) & 0xFFFF;
+	filter_fifo0_1.FilterMaskIdLow =  ((0xB051 << 3) & 0xFFFF) | CAN_ID_EXT;
+
+	if (HAL_CAN_ConfigFilter(_usr_can, &filter_fifo0_1) != HAL_OK) {
 		User_Error_Handler(UERR_CAN_FILTER_CONFIG, SET);
 	}
 
@@ -503,17 +523,19 @@ void _Process_Received_CAN() {
 	uint8_t data[8];
 
 	while (HAL_CAN_GetRxMessage(_usr_can, CAN_RX_FIFO0, &header, data) == HAL_OK) {
-		if (header.StdId == 0x10) {  // AUC myRIO
+		if (header.IDE == CAN_ID_STD && header.StdId == 0x10) {  // AUC myRIO
 			if(data[0] == 0x21){
 				HAL_GPIO_WritePin(SHELL_AUT_RELAY_GPIO_Port, SHELL_AUT_RELAY_Pin, GPIO_PIN_SET);
 			}else{
 				HAL_GPIO_WritePin(SHELL_AUT_RELAY_GPIO_Port, SHELL_AUT_RELAY_Pin, GPIO_PIN_RESET);
 			}
-		} else if (header.StdId == 0x190){  // Steering Wheel
+		} else if (header.IDE == CAN_ID_STD && header.StdId == 0x190){  // Steering Wheel
 			steering_wheel_state.BTN.bits = data[0];
 			steering_wheel_state.SETTING = data[1];
 			steering_wheel_state.TAB = data[2];
 			steering_wheel_state.MODE = data[3];
+		} else if (header.IDE == CAN_ID_EXT && header.ExtId == 0xB051) { // PESC Status 7 custom
+			switch_table_state.B.CLUTCH_CONNECTED = data[0] == 1;
 		}
 	}
 
