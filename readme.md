@@ -1,104 +1,65 @@
-# STM32 Switch Table for SZEmission
+# STM32 Switch Table / VCU for SZEmission
 
-The switch table is the "brain" of our SZEmission electric vehicle, used for controlling functions like lights, wiper and acceleration. It processes the inputs from switches, the steering wheel and the throttle pedal and based on that sends a series of CAN messages. The most important role of the switch table currently is calculating the thorottle reference for the motor based on the pilot's inputs and various strategy algorithms.
+The switch table or sometimes called VCU (Vehicle Control Unit) is the "brain" of our SZEmission urban concept electric vehicle. It used for controlling most of the car's functions like lights, wiper and acceleration. It processes  inputs from various sources like the onboard switches, the steering wheel, the pedals and the wheel speed sensor then sends a series of CAN messages that control other components like the motor controller.
 
 ## Tasks
 
 1. **Throttle Input**: Reads and filters the analog potentiometer connected to the throttle pedal.
 2. **Switch Input**: Reads the state of the various switches (eg. wiper, headlight, hazard, ...)
 3. **Input Broadcasting**: Sends a CAN message with the switch positions as well as the throttle and brake pedal.
-4. **Wiper Control**: Controls the windshield wiper's servo and power supply.
-5. **Motor Control**: Sends throttle reference commands to the motor controller over CAN.  
-   This function is turned off when either MC_OW (Motor Control Override) or AUT (Autonomous Mode) switch is active.
+4. **Clutch Safety**: Syncronizes the motor speed with the wheel speed.
+5. **Motor Control**: Sends throttle reference commands to the motor controller over CAN.
+6. **Wiper**: Controls the windshield wiper's servo and power supply.
 
-## Drive Modes
+## How to drive the SZEmission
 
-The drive mode can be selected by the pilot using the two rotary switches on the steering wheel. The one on the **left (ROT3)** selects the drive mode, and the one on the **right (ROT1)** selects the setting within that mode. The calculated reference only influences the **accelerate (ACC)** button's behavior, the throttle pedal always overrides these settings. However, for any throttle output, first the direction selector switch has to be in **drive (D)** or **reverse (R)**. The **neutral (N)** setting inibits all acceleration.
+Firstly, the pilot needs to make sure that the car is turned on and that the **MC_OW** switch is in the off position on the switch table.
 
-All modes, including the pedal, are rate limited to prevent sudden changes in acceleration. This is currently set to 5% per 50 milliseconds up and 25%/50ms down. This means the throttle takes at least 1 second to go from 0% to 100% and 0.2 seconds to go down from 100% to 0%.
+Then the drive mode can be selected using the two of the rotary switches on the bottom of the steering wheel. The **left (MODE)** one selects the mode, while the **right (SETTING)** one selects the setting within that mode (if applicable). See [#choosing-a-drive-mode](#choosing-a-drive-mode).
 
-This table describes the drive modes and their settings:
+The next step is selecting the direction using the switch located on the top left of the steering wheel. This can be **drive (D)** or **reverse (R)** like in a car. Toggling the switch wakes up the motor controller, which takes a couple seconds, so wait 4s before continuing.
 
-| Setting / Mode | A: Manual     | B: Manual Strategy | C: Automatic Strategy | D: Speed Hold | E: Race modes |
-| -------------- | ------------- | ------------------ | --------------------- | ------------- | ------------- |
-| 1              | 80% throttle  | Aumovio Z22        | LTV - LQR             | 5 km/h        | Aumovio       |
-| 2              | 90% throttle  | Silesia Ring Z22   | LQR + Switching       | 10 km/h       | Silesia Ring  |
-| 3              | 100% throttle | -                  | -                     | 15 km/h       | -             |
-| 4              | -             | -                  | -                     | 20 km/h       | -             |
-| 5              | -             | -                  | -                     | 25 km/h       | -             |
-| 6              | -             | -                  | -                     | 30 km/h       | -             |
-| 7              | -             | -                  | -                     | 35 km/h       | -             |
-| 8              | -             | -                  | -                     | 40 km/h       | -             |
+Now comes the clutch synchronization. The pilot must press ONLY THE BUTTON on the clutch pedal, this will trigger the sync process indicated by the LEDs on the side of the OLED display. Once they turn green, the clutch pedal can be pressed in fully.
 
-### Manual Mode
+The car should then start accelerating according to the selected drive mode.
 
-In manual mode, the pilot can chose between 3 pre-defined throttle values that are applied when the **accelerate ACC** button is pressed.
+### Choosing a Drive Mode
 
-### Manual Strategy Mode
+Out of the possible 8, there are currently 4 drive modes implemented in the VCU. They can be selected using the **MODE** rotary switch on the steering wheel.
 
-In this mode the pilot can chose what strategy's calculated throttle reference to apply when the **accelerate ACC** button is pressed. These are precalculated values based on wheel RPM or speed. The driver still has to chose where to accelerate in this mode.
+It is important to note that the throttle pedal overrides the drive modes.
 
-### Automatic Strategy Mode
+#### [A] Manual Mode
 
-As the name suggests, in this mode the switch table calculates takes into consideration multiple variables and previous simulation results to derermain when and how much to accelerate. The pilot's only job is to hold down the **accelerate (ACC)** button continously which acts as a "dead man's switch" in this mode. This tells the system that it can accelerate when the conditions are right.
+In this mode, the pilot can choose from predefined acceleration values with the **SETTING** selector. Setting 1 corresponds to the lowest 1/8 = 12.5% acceleration, while 8 means 8/8 = 100%. For simplicity, here is a table of the possible settings:
 
-### Speed Hold Mode
+| A-1         | A-2         | A-3         | A-4         | A-5         | A-6         | A-7         | A-8         |
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| 1/8 = 12.5% | 2/8 = 25%   | 3/8 = 37.5% | 4/8 = 50%   | 5/8 = 62.5% | 6/8 = 75%%  | 7/8 = 87.5% | 8/8 = 100%  |
 
-This is a simple cruise control where the switch table tries to maintain a constant speed selected by the pilot. After selecting the speed, holding down the **accelerate (ACC)** button tells the switch table that the pilot is ready to accelerate.
+#### [B] Manual Strategy Mode
 
-## Race modes
+This mode uses the current wheel RPM to calculate the optimal throttle.
 
-In this mode the first lap is Manual Strategy and all the other laps are Automatic.
+#### [C] Automatic Strategy Mode
 
-## Implementation
+This is similar to mode B, but now the VCU uses a Simulink model and takes into consideration multiple variables to determine when and how much to accelerate.
 
-The following sections describe the hardware and software implementation of the switch table. It is intended for developers who want to understand the codebase. If you are just a user you can stop reading now.
+#### [D] Speed Hold Mode
 
-The hardware of the switch table is a custom designed PCB with a lot of ports and 6 switches.
+This is a simple cruise control where the VCU tries to maintain a the selected speed. The **SETTING** rotary switch position determines the target speed from 5km/h to 40km/h in 5km/h increments.
 
-- **Custom board:** Switch Table v4
-- **Microcontroller**: STM32F412RET6 (LQFP64)
-- **Clock**: 8MHz external crystal, HSE
-- **CAN Interface**: CAN2 using an ESDCAN24-2BLY transceiver
-- **Micro USB port**: UART1 converted to USB serial using an FTDI chip
-- **Programmer/Debugger**: External ST-Link programmer with an SWD TC2030-IDC connector
+| D-1   | D-2    | D-3    | D-4    | D-5    | D-6    | D-7    | D-8    |
+|-------|--------|--------|--------|--------|--------|--------|--------|
+| 5km/h | 10km/h | 15km/h | 20km/h | 25km/h | 30km/h | 35km/h | 40km/h |
 
-The software is a combination of C code for basic functionality and MATLAB Simulink for the complex strategy algorithms. The Simulink subsystems are generated into C code as reusable functions with the Embedded coder extension and then integrated into the project in STM32CubeIDE. The models are in a different repository, called [sw-table-stm32-simulink](https://github.com/szenergy/sw-table-stm32-simulink). There is also a monorepo that ties these projects together at [szenergy/SZEnergy_BE_CTRL](https://github.com/szenergy/SZEnergy_BE_CTRL).
+### Emergency clutch safety override
 
-### Configuration
+If some of the sensors ensuring the safe operation of the clutch are broken or otherwise non functional, the car will be unable to accelerate due to the built in safety features that would prevent damage to the clutch. However in extreme circumstances these can be disabled using the **MC_OW** switch. If it is flipped into the ON position, press the throttle pedal to start the syncronization. Wait around 1-2s then press down fully on the clutch pedal and now the **ACC** button on the steering wheel overrides the limit switch so the VCU will think everything is normal and start accelerating.
 
-The C codebase is designed to be configurable even for non-programmers. Open the `Core/Inc/user.h` file and on the top are all constants used by the project, which have been set for the current verison of the vehicle.
+## Development
 
-### Peripherals
-
-Here it is described in detail how the various peripherals of the `STM32F412RET6` microcontroller are used by this project.
-
-#### CAN bus
-
-The CAN2 peripheral is connected to the ESDCAN transciever then to the vehicle's CAN bus network. There are many devices and messages on the bus, but the switch table only interacts with a few of them.
-
-| Direction | ID    | Name                         | Description                                |
-| --------- | ----- | ---------------------------- | ------------------------------------------ |
-| Received  | 0x190 | Steering_Wheel               | Button and switch states                   |
-| Received  | 0x123 | Encoder_Messages             | Wheel RPM measurement                      |
-| Sent      | 0xA51 | VESC_Relativ_Current_Command | Torque reference for the motor controller  |
-| Sent      | 0x129 | VCU_Status_Message           | Switch positions and filtered throttle     |
-| Sent      | 0x150 | VCU_Calculated_State         | Lap number, time, distance and drive state |
-| Sent      | 0x151 | VCU_Simulink_Debug           | Simulink model debug values                |
-
-Further details on these CAN bus messages can be found in the current [CAN dbc file](https://github.com/szenergy/SZEmission_CANdb). Two important signals to note are in the **VCU_Calculated_State** message for drive mode and setting. Here is an extended version of the drive mode and setting table that shows what the values on the CAN bus mean, where the columns represent the drive modes and the rows are the settings within those modes:
-
-| Setting / Mode | 0 : Neutral | 1 : Manual     | 2 : Manual Strategy | 3 : Automatic Strategy | 4 : Speed Hold |
-| -------------- | ----------- | -------------- | ------------------- | ---------------------- | -------------- |
-| 0              | Neutral     | Pedal override | -                   | -                      | -              |
-| 1              | -           | 80% throttle   | Silesia Ring Z22    | LTV - LQR              | 5 km/h         |
-| 2              | -           | 90% throttle   | -                   | LQR + Switching        | 10 km/h        |
-| 3              | -           | 100% throttle  | Aumovio Z22         | -                      | 15 km/h        |
-| 4              | -           | -              | -                   | -                      | 20 km/h        |
-| 5              | -           | -              | -                   | -                      | 25 km/h        |
-| 6              | -           | -              | -                   | -                      | 30 km/h        |
-| 7              | -           | -              | -                   | -                      | 35 km/h        |
-| 8              | -           | -              | -                   | -                      | 40 km/h        |
+The C codebase is designed to be as configurable as possible even for non-programmers. The `Core/Inc/user.h` file contains all constants used in the project, which have been set for the current verison of the vehicle.
 
 #### Timers
 
@@ -114,32 +75,6 @@ ADC1 with IN0 on pin PA0 is used to read the throttle pedal position. It is star
 
 The UART1 is connected to an FTDI chip then to a Micro USB port which acts as a simple serial interface. This is currently used for some debugging, but future plans include updating the firmware, lookup tables, strategy, or drive modes from here.
 
-### Pin Configuration
-
-![Picture of the STM32F412RET6 from CubeMX](./docs/sw_table_v4_pin_config.png)
-
-| Function                     | Name                         | Pin  | Type         |
-| ---------------------------- | ---------------------------- | ---- | ------------ |
-| Switch used to enable lights | Lights_enable_switch         | PC3  | GPIO Input   |
-| Wiper on/off                 | Wiper_switch                 | PB0  | GPIO Input   |
-| Hazard signal                | Hazard_switch                | PB5  | GPIO Input   |
-| Autonomous mode switch       | Autonomous_switch            | PC4  | GPIO Input   |
-| Motor control override       | Motorcontrol_override_switch | PC5  | GPIO Input   |
-| Headlight switch             | Headlight_switch             | PC13 | GPIO Input   |
-| Brake pedal input            | Brake_pedal_input            | PA9  | GPIO Input   |
-| Brake pedal input            | Clutch_pedal_input           | PA8  | GPIO Input   |
-| Wiper converter enable       | OUT_WIPER_CONVERTER          | PD3  | GPIO Output  |
-| Throttle Potentiometer       | Throttle_pedal_ADC           | PA0  | ADC Input    |
-| Wiper Servo Control          | Wiper_PWM                    | PB4  | TIM3 PWM CH1 |
-| Yellow debug LED             | LED1_Yellow                  | PA1  | GPIO Output  |
-| Red error LED                | LED2_Red                     | PA2  | GPIO Output  |
-| Green status LED             | LED3_Green                   | PA3  | GPIO Output  |
-| Blue debug LED               | LED4_Blue                    | PA4  | GPIO Output  |
-| CAN Receive                  | CAN2_RX                      | PB12 | CAN2_RX      |
-| CAN Transmit                 | CAN2_TX                      | PB13 | CAN2_TX      |
-| UART Receive                 | USART1_RX                    | PB7  | USART1_RX    |
-| UART Receive                 | USART1_TX                    | PB6  | USART1_TX    |
-
 ### Code Structure
 
 ```
@@ -147,7 +82,6 @@ sw_table_stm32/
 ├── sw_table_stm32.ioc           # STM32CubeMX pin/peripheral configuration
 ├── readme.md                    # You are reading this file right now
 ├── license                      # MIT License file
-├── docs/                        # Images and other files required for the readme
 ├── Core/                        # Source code folder
 │   ├── Inc/                     # Header files
 │   │   ├── Simulink/            # Simulink generated code, do not edit this directly
@@ -167,19 +101,12 @@ sw_table_stm32/
 
 ### Development Guidelines
 
-- **Use single precision or fixed point math.**
-  - The STM32F412RET6 has an FPU but it only supports single precision (float) values.
-- **Avoid interrupts and use hardware features where possible.**
-  - Since power efficiency is a primary concern, therefor the code is designed to minimize CPU usage.
-  - This means using timers that hardware trigger other peripherals and DMA to handle saving of results.
-- **Use structs and understandable variable names.**
-  - The code should be easy to read and understand.
-  - This is especially important for the next generation of students in the team.
-- **Use enums, defined constants, bitfields for better readability.**
-  - Since this code is likely to be read by people with varying levels of programming experience, it is important to make it as clear as possible what the code is doing.
-  - DO NOT HARDCODE VALUES! If you need to use a constant value, define it in `user.h` with a descriptive name.
-- **Add comments where the intention might not be clear.**
-  - If you are doing something that might not be immediately obvious to someone else, add a comment explaining why you are doing it.
+- Use single precision or fixed point math.
+  - The STM32F412RET6 has an FPU that only supports single precision (float) values.
+- Avoid interrupts and use hardware features where possible.
+  - Since power efficiency is a primary concern, the code is designed to minimize CPU usage.
+- Use structs and easily understandable variable names.
+- Do not hardcode values! If you need to use a constant value, define it in `user.h` with a descriptive name.
 
 ---
 

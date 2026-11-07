@@ -14,8 +14,18 @@
 
 // *** Definitions ***
 
+// KUPLUUUUUUNG
+#define CLUTCH_GEAR_RATIO			(float)3.27
+// The maximum RPM difference where connecting the clutch gears is considered safe
+#define CLUTCH_SAFE_RANGE			(float)0.08		// Percent value from 0 to 1  (0.05 means 5%)
+
 // Optimal lap time in seconds, used for strategy
-#define OPTIMAL_LAP (float)188.57
+#define OPTIMAL_LAP_TIME 			 (float)188.57
+// Manual Strategy configuration: RPM used to switch from 100% throttle to the defined value
+#define MANUAL_STRAT_SWITCH_THROTTLE	(float)0.332217618
+#define MANUAL_STRAT_SWITCH_RPM			(float)224
+// Silesia Ring: 159.388 RPM, 0.387723
+// Aumovio test track: 224 RPM, 0.332217618
 
 // These variables are used for lap button protection
 // Set the minimum time and distance required for the lap button to register again after a press
@@ -26,9 +36,9 @@
 #define POT_ZERO   (float)2150
 #define POT_MAX    (float)2350
 
-// Rate limits for changes in torque per 50 milliseconds
-#define RATE_LIMIT_UP   (float)0.05
-#define RATE_LIMIT_DOWN (float)0.05
+// Rate limits for changes in load signal per 50 milliseconds
+#define RATE_LIMIT_UP   (float)0.025
+#define RATE_LIMIT_DOWN (float)0.025
 
 // The time between wipes is in ticks, each tick is equal to 50 milliseconds
 #define WIPER_PERIOD   (uint16_t)25     // 25 => 1.25s
@@ -46,7 +56,7 @@
 // The following are debug options.
 // Uncomment (remove the // from the start) the defines to enable them.
 //#define DEBUG_LEDS            // Debug LEDs on the panel's side
-//#define SLEEP_DEBUG_PIN       // Output sleep/awake state on PC12 pin
+//#define DEBUG_PINS            // Output sleep/awake state on PC12 and LQR execution on PC11
 //#define WIPER_SWEEP_DEBUG     // Moves wiper PWM from 0% fill to 100% slowly
 //#define UART_DEBUG            // Sends some debug values on the UART
 
@@ -84,15 +94,6 @@ void User_Error_Handler(USER_ERROR err, uint8_t fatal);
 
 // *** Data structures and types ***
 
-
-typedef enum {
-	DM_NEUTRAL,
-	DM_MANUAL,
-	DM_MANUAL_STRATEGY,
-	DM_AUTOMATIC_STRATEGY,
-	DM_SPEED_HOLD
-} DRIVE_MODE_ENUM;
-
 typedef union  __attribute__(())
 {
     uint8_t bits;
@@ -101,7 +102,7 @@ typedef union  __attribute__(())
         uint8_t LIGHTS_DRL      :1;
         uint8_t LIGHTS_HAZARD   :1;
         uint8_t AUTONOMOUS      :1;
-        uint8_t BRAKE           :1;
+        uint8_t BRAKE_PEDAL     :1;
         uint8_t LIGHTS_ENABLE   :1;
         uint8_t MC_OW           :1;
         uint8_t WIPER           :1;
@@ -114,14 +115,14 @@ typedef union __attribute__(())
     uint8_t bits;
     struct
     {
-        uint8_t RELAY_NO        :1;
-        uint8_t RELAY_NC        :1;
-        uint8_t RESERVED1       :1;
-        uint8_t RESERVED2       :1;
-        uint8_t RESERVED3       :1;
-        uint8_t RESERVED4       :1;
-        uint8_t RESERVED5       :1;
-        uint8_t RESERVED6       :1;
+        uint8_t RELAY_NO			:1;
+        uint8_t RELAY_NC			:1;
+        uint8_t CLUTCH_PEDAL		:1;
+        uint8_t CLUTCH_SYNCED		:1;
+        uint8_t CLUTCH_CONNECTED	:1;
+        uint8_t RESERVED4			:1;
+        uint8_t RESERVED5			:1;
+        uint8_t RESERVED6			:1;
     };
 } VCU_STATE_B;
 
@@ -151,6 +152,17 @@ typedef enum {
 	ROT_7 = 32,
 	ROT_8 = 64
 } ROT_POS_ENUM;
+
+typedef enum {
+	ROT_A = 0,
+	ROT_B = 1,
+	ROT_C = 2,
+	ROT_D = 4,
+	ROT_E = 8,
+	ROT_F = 16,
+	ROT_G = 32,
+	ROT_H = 64
+} ROT_POS_ENUM_ABC;
 
 #define ROT_TO_INT (uint8_t[]){[ROT_1] = 1, [ROT_2] = 2, [ROT_3] = 3, [ROT_4] = 4, [ROT_5] = 5, [ROT_6] = 6, [ROT_7] = 7, [ROT_8] = 8}
 

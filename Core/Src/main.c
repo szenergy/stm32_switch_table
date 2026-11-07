@@ -147,13 +147,13 @@ int main(void)
   {
 	  // Execute the tasks once, then go to sleep until the TIM14 triggers again
 	  if (wake_up_flag == SET) {
-#ifdef SLEEP_DEBUG_PIN
-	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_SET);
+#ifdef DEBUG_PINS
+    HAL_GPIO_WritePin(Debug_PC12_GPIO_Port, Debug_PC12_Pin, GPIO_PIN_SET);
 #endif
 		User_Loop();
 		wake_up_flag = RESET;
-#ifdef SLEEP_DEBUG_PIN
-	HAL_GPIO_WritePin(Debug_Out_GPIO_Port, Debug_Out_Pin, GPIO_PIN_RESET);
+#ifdef DEBUG_PINS
+	HAL_GPIO_WritePin(Debug_PC12_GPIO_Port, Debug_PC12_Pin, GPIO_PIN_RESET);
 #endif
 	  }
 	HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
@@ -492,10 +492,12 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, Brake_light_Pin|Wiper_DCDC_enable_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, SHELL_AUT_RELAY_Pin|Debug_Out_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, SHELL_AUT_RELAY_Pin|Debug_PC11_Pin|Debug_PC12_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : Headlight_switch_Pin Lights_enable_switch_Pin Autonomous_switch_Pin Motorcontrol_override_switch_Pin */
-  GPIO_InitStruct.Pin = Headlight_switch_Pin|Lights_enable_switch_Pin|Autonomous_switch_Pin|Motorcontrol_override_switch_Pin;
+  /*Configure GPIO pins : Headlight_switch_Pin Lights_enable_switch_Pin Autonomous_switch_Pin Motorcontrol_override_switch_Pin
+                           Clutch_Rear_In_Pin */
+  GPIO_InitStruct.Pin = Headlight_switch_Pin|Lights_enable_switch_Pin|Autonomous_switch_Pin|Motorcontrol_override_switch_Pin
+                          |Clutch_Rear_In_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -520,18 +522,24 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(Brake_light_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : SHELL_AUT_RELAY_Pin Debug_Out_Pin */
-  GPIO_InitStruct.Pin = SHELL_AUT_RELAY_Pin|Debug_Out_Pin;
+  /*Configure GPIO pins : SHELL_AUT_RELAY_Pin Debug_PC11_Pin Debug_PC12_Pin */
+  GPIO_InitStruct.Pin = SHELL_AUT_RELAY_Pin|Debug_PC11_Pin|Debug_PC12_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Clutch_pedal_input_Pin Brake_pedal_input_Pin */
-  GPIO_InitStruct.Pin = Clutch_pedal_input_Pin|Brake_pedal_input_Pin;
+  /*Configure GPIO pin : Clutch_pedal_input_Pin */
+  GPIO_InitStruct.Pin = Clutch_pedal_input_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(Clutch_pedal_input_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Brake_pedal_input_Pin */
+  GPIO_InitStruct.Pin = Brake_pedal_input_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(Brake_pedal_input_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Wiper_DCDC_enable_Pin */
   GPIO_InitStruct.Pin = Wiper_DCDC_enable_Pin;
